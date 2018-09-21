@@ -76,8 +76,9 @@ class Create extends Component {
 
   render() {
     return (
-      <div className="card">
+      <div className={this.props.hidden ? "card d-none" : "card d-block"}>
         <div className="card-body">
+          <h3 class="card-title text-center">Create a New HIT</h3>
           <div className="mt-2">
             <form
               className="position-relative"

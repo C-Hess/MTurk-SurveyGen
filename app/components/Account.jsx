@@ -6,7 +6,7 @@ class Account extends Component {
       <React.Fragment>
         <div className={this.props.hidden ? "card d-none" : "card d-block"}>
           <div className="card-body">
-            <h3 class="card-title text-center">Mechanical Turk Account</h3>
+            <h3 className="card-title text-center">Mechanical Turk Account</h3>
           </div>
         </div>
       </React.Fragment>

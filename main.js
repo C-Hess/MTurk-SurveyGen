@@ -23,9 +23,9 @@ function createWindow() {
     mainWindow = null;
   });
 
-  /*BrowserWindow.addDevToolsExtension(
+  BrowserWindow.addDevToolsExtension(
     "/home/cameron/.config/google-chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/3.4.0_0"
-  );*/
+  );
 }
 
 // This method will be called when Electron has finished

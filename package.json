@@ -6,6 +6,7 @@
     "start": "electron ."
   },
   "devDependencies": {
+    "@fortawesome/fontawesome-free": "^5.3.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "electron-prebuilt-compile": "^3.0.0",
     "electron-react-devtools": "^0.5.3"

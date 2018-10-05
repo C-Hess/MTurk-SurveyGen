@@ -1,6 +1,8 @@
 import React, { Component } from "react";
-import ReactCSSTransitionGroup from "react-addons-css-transition-group";
 import ErrorModal from "./ErrorModal";
+import SurveyGenerator from "../SurveyGenerator";
+
+let window;
 
 class Create extends Component {
   state = {
@@ -8,22 +10,27 @@ class Create extends Component {
     selectedQuestionPair: -1,
     invalidQuestionInput: false,
     hitTitleInputValue: "",
+    hitDescriptionInputValue: "",
     questionDescriptionInputValue: "",
     controlInputValue: "",
     experimentalInputValue: "",
+    reverseAssignment: true,
     assignmentReward: 0,
     recommendedReward: true,
     errorModalVisible: false,
     errorModalBody: ""
   };
 
+  //TODO fix this method to get rid of setState in render method
   getAssignmentRewardValue = () => {
     if (this.state.recommendedReward) {
-      const calculatedReward =
-        Math.round(this.state.questionPairs.length * 0.108333333 * 100) / 100;
-      if (calculatedReward != this.state.assignmentReward) {
-        this.setState({ assignmentReward: calculatedReward });
-      }
+      let calculatedReward =
+        Math.round(
+          this.state.questionPairs.length * 1.5 * 0.108333333 * 1.25 * 100
+        ) / 100;
+      //if (calculatedReward != this.state.assignmentReward) {
+      //this.setState({ assignmentReward: calculatedReward });
+      //}
     }
     return this.state.assignmentReward;
   };
@@ -61,13 +68,35 @@ class Create extends Component {
 
   validateAll = () => {
     const validationInfo = this.validatePreview();
-    if (validationInfo.isValid) {
+    if (!validationInfo.isValid) {
       return validationInfo;
     }
 
     if (this.state.assignmentReward <= 0) {
-      return false, "Survey must have an assignment reward > 0";
+      validationInfo.isValid = false;
+      validationInfo.reason = "Survey must have an assignment reward > 0";
     }
+
+    if (this.state.hitTitleInputValue <= 0) {
+      validationInfo.isValid = false;
+      validationInfo.reason = "Survey must have a title";
+    }
+
+    if (this.state.hitDescriptionInputValue <= 0) {
+      validationInfo.isValid = false;
+      validationInfo.reason = "Survey must have a description";
+    }
+
+    if (
+      this.props.apiAccessID.length <= 0 ||
+      this.props.apiSecretKey.length <= 0
+    ) {
+      validationInfo.isValid = false;
+      validationInfo.reason =
+        "Account information not set. Cannot publish survey";
+    }
+
+    return validationInfo;
   };
 
   validatePreview = () => {
@@ -76,11 +105,6 @@ class Create extends Component {
       validationInfo.isValid = false;
       validationInfo.reason =
         "Survey have more than one question pair in the survey";
-    }
-
-    if (this.state.hitTitleInputValue <= 0) {
-      validationInfo.isValid = false;
-      validationInfo.reason = "Survey must have a title";
     }
 
     if (this.state.questionDescriptionInputValue <= 0) {
@@ -118,7 +142,27 @@ class Create extends Component {
   handlePreviewButton = e => {
     const validationInfo = this.validatePreview();
     if (validationInfo.isValid) {
-      // Preview;
+      const surveyGen = new SurveyGenerator();
+      const generatedSurvey = surveyGen.getPreviewDocument(
+        this.state.questionPairs,
+        this.state.questionDescriptionInputValue
+      );
+
+      // Modules to control application and create native browser window
+      const { BrowserWindow } = require("electron").remote;
+      const tmp = require("tmp");
+      const fs = require("fs");
+
+      const tmpFile = tmp.fileSync({ postfix: ".html" });
+      fs.writeFileSync(tmpFile.name, generatedSurvey);
+
+      window = new BrowserWindow({ width: 800, height: 450 });
+      window.setTitle("Survey Preview");
+      window.loadURL("file://" + tmpFile.name);
+      window.on("closed", () => {
+        window = null;
+        tmp.setGracefulCleanup();
+      });
     } else {
       this.setState({
         errorModalVisible: true,
@@ -130,7 +174,66 @@ class Create extends Component {
   handlePublishButton = e => {
     const validationInfo = this.validateAll();
     if (validationInfo.isValid) {
-      // Publish;
+      const surveyGen = new SurveyGenerator();
+      const generatedSurvey = surveyGen.getDocument(
+        this.state.questionPairs,
+        this.state.questionDescriptionInputValue
+      );
+
+      const AWS = require("aws-sdk");
+      AWS.config.update({
+        credentials: new AWS.Credentials({
+          accessKeyId: this.props.apiAccessID,
+          secretAccessKey: this.props.apiSecretKey
+        }),
+        region: "us-east-1"
+      });
+      const endpoint =
+        "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
+      // Uncomment this line to use in production
+      // endpoint = 'https://mturk-requester.us-east-1.amazonaws.com';
+
+      const mturk = new AWS.MTurk({ endpoint: endpoint });
+
+      // Test your ability to connect to MTurk by checking your account balance
+      mturk.getAccountBalance(function(err, data) {
+        if (err) {
+          console.log(err.message);
+        } else {
+          // Sandbox balance check will always return $10,000
+          console.log("I have " + data.AvailableBalance + " in my account.");
+        }
+      });
+
+      /*
+      Publish a new HIT to the Sandbox marketplace start by reading in the HTML markup specifying your task from a seperate file (my_question.xml). To learn more about the HTML question type, see here: http://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_HTMLQuestionArticle.html
+      */
+
+      // Construct the HIT object below
+      const myHIT = {
+        Title: this.state.hitTitleInputValue,
+        Description: this.state.hitDescriptionInputValue,
+        MaxAssignments: 1,
+        LifetimeInSeconds: 3600,
+        AssignmentDurationInSeconds: 600,
+        Reward: "" + this.state.assignmentReward,
+        Question: generatedSurvey
+      };
+
+      mturk.createHIT(myHIT, function(err, data) {
+        if (err) {
+          console.log(err.message);
+        } else {
+          console.log(data);
+          // Save the HITId printed by data.HIT.HITId and use it in the RetrieveAndApproveResults.js code sample
+          console.log(
+            "HIT has been successfully published here: https://workersandbox.mturk.com/mturk/preview?groupId=" +
+              data.HIT.HITTypeId +
+              " with this HITId: " +
+              data.HIT.HITId
+          );
+        }
+      });
     } else {
       this.setState({
         errorModalVisible: true,
@@ -160,7 +263,15 @@ class Create extends Component {
   };
 
   handleDescriptionChange = e => {
+    this.setState({ hitDescriptionInputValue: e.target.value });
+  };
+
+  handleQuestionDescriptionChange = e => {
     this.setState({ questionDescriptionInputValue: e.target.value });
+  };
+
+  handleReverseAssignmentChange = e => {
+    this.setState({ reverseAssignment: e.target.checked });
   };
 
   handleRecommendCheckboxChange = e => {
@@ -200,12 +311,22 @@ class Create extends Component {
               />
             </div>
             <div className="form-group">
+              <label>Survey description</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter survey description"
+                onChange={this.handleDescriptionChange}
+                value={this.state.hitDescriptionInputValue}
+              />
+            </div>
+            <div className="form-group">
               <label>Question description</label>
               <input
                 type="text"
                 className="form-control"
                 placeholder="Enter question description"
-                onChange={this.handleDescriptionChange}
+                onChange={this.handleQuestionDescriptionChange}
                 value={this.state.questionDescriptionInputValue}
               />
               <small className="form-text text-muted">
@@ -285,6 +406,21 @@ class Create extends Component {
             Delete
           </button>
           <h5 className="border-bottom my-3">HIT Configuration</h5>
+          <div className="form-group form-check">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={this.state.reverseAssignment}
+              onChange={this.handleReverseAssignmentChange}
+            />
+            <label className="form-check-label">
+              Create reverse assignment
+            </label>
+            <small className="form-text text-muted">
+              This will create another HIT with all of the questions in reverse
+              order to remove some bias
+            </small>
+          </div>
           <div className="form-group">
             <label>Assignment reward</label>
             <div className="input-group">

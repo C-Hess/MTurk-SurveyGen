@@ -15,16 +15,16 @@ class ErrorModal extends Component {
             right: 0,
             bottom: 0,
             backgroundColor:
-              "rgba(0,0,0,0.5)" /* Black background with opacity */,
+              "rgba(0,0,0,0.2)" /* Black background with opacity */,
             zIndex: 2 /* Specify a stack order in case you're using a different order for other elements */
           }}
         />
         <div
-          className={this.props.isVisible ? "modal d-inline" : "modal d-none"}
+          className={this.props.isVisible ? "modal d-inline " : "modal d-none "}
           tabIndex="-1"
         >
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
+            <div className="shadow modal-content">
               <div
                 className="modal-header bg-danger"
                 style={{

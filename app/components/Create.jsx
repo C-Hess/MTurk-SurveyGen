@@ -1,19 +1,21 @@
 import React, { Component } from "react";
 import ErrorModal from "./ErrorModal";
+import AddTwoURLs from "./AddTwoURLs";
 import SurveyGenerator from "../SurveyGenerator";
+import AddSingleURL from "./AddSingleURL";
 
 let window;
 
 class Create extends Component {
   state = {
-    questionPairs: [],
-    selectedQuestionPair: -1,
-    invalidQuestionInput: false,
+    questions: [],
+    selectedQuestions: -1,
+    invalidCombinedURLInput: false,
+    invalidExperimentalURLInput: false,
+    invalidControlURLInput: false,
     hitTitleInputValue: "",
     hitDescriptionInputValue: "",
     questionDescriptionInputValue: "",
-    controlInputValue: "",
-    experimentalInputValue: "",
     reverseAssignment: true,
     assignmentReward: 0,
     recommendedReward: true,
@@ -26,7 +28,7 @@ class Create extends Component {
     if (this.state.recommendedReward) {
       let calculatedReward =
         Math.round(
-          this.state.questionPairs.length * 1.5 * 0.108333333 * 1.25 * 100
+          this.state.questions.length * 1.5 * 0.108333333 * 1.25 * 100
         ) / 100;
       //if (calculatedReward != this.state.assignmentReward) {
       //this.setState({ assignmentReward: calculatedReward });
@@ -35,8 +37,8 @@ class Create extends Component {
     return this.state.assignmentReward;
   };
 
-  getQuestionPairRows = () => {
-    if (this.state.questionPairs.length == 0) {
+  getQuestionRows = () => {
+    if (this.state.questions.length == 0) {
       return (
         <tr>
           <td className="table-secondary text-center" colSpan="3">
@@ -45,24 +47,54 @@ class Create extends Component {
         </tr>
       );
     } else {
-      return this.state.questionPairs.map((questionPair, index) => (
-        <tr
-          key={index}
-          className={
-            index == this.state.selectedQuestionPair ? "table-active" : ""
+      return this.state.questions.map((question, index) => {
+        let controlVal = question.urls[0];
+        let experimentalVal;
+        if (question.urls.length == 1) {
+          if (question.isControlLeft) {
+            experimentalVal = (
+              <td
+                className="align-middle text-center text-white bg-info"
+                style={{ wordWrap: "break-word", maxWidth: "10px" }}
+              >
+                Right of control URL
+              </td>
+            );
+          } else {
+            experimentalVal = (
+              <td
+                className="align-middle text-center text-white bg-info"
+                style={{ wordWrap: "break-word", maxWidth: "10px" }}
+              >
+                Left of control URL
+              </td>
+            );
           }
-          onClick={() => this.handleOnQuestionClick(index)}
-        >
-          <th scope="row">{index + 1}</th>
+        } else {
+          experimentalVal = (
+            <td style={{ wordWrap: "break-word", maxWidth: "10px" }}>
+              {question.urls[1]}
+            </td>
+          );
+        }
 
-          <td style={{ wordWrap: "break-word", maxWidth: "10px" }}>
-            {questionPair.controlURL}
-          </td>
-          <td style={{ wordWrap: "break-word", maxWidth: "10px" }}>
-            {questionPair.experimentalURL}
-          </td>
-        </tr>
-      ));
+        return (
+          <tr
+            key={index}
+            className={
+              index == this.state.selectedQuestions ? "table-active" : ""
+            }
+            onClick={() => this.handleOnQuestionClick(index)}
+          >
+            <th scope="row">{index + 1}</th>
+
+            <td style={{ wordWrap: "break-word", maxWidth: "10px" }}>
+              {controlVal}
+            </td>
+            {experimentalVal}
+          </tr>
+        );
+      });
     }
   };
 
@@ -101,7 +133,7 @@ class Create extends Component {
 
   validatePreview = () => {
     const validationInfo = { isValid: true, reason: "" };
-    if (this.state.questionPairs <= 0) {
+    if (this.state.questions <= 0) {
       validationInfo.isValid = false;
       validationInfo.reason =
         "Survey have more than one question pair in the survey";
@@ -115,27 +147,45 @@ class Create extends Component {
   };
 
   handleOnQuestionClick = index => {
-    this.setState({ selectedQuestionPair: index });
+    this.setState({ selectedQuestions: index });
   };
 
-  handleAddQuestionPair = e => {
-    if (
-      this.state.controlInputValue.length > 0 &&
-      this.state.experimentalInputValue.length > 0
-    ) {
-      const questions = [...this.state.questionPairs];
-      questions.push({
-        controlURL: this.state.controlInputValue,
-        experimentalURL: this.state.experimentalInputValue
-      });
+  handleAddURLQuestion = (combinedURLInputValue, isControlLeft) => {
+    if (combinedURLInputValue.length > 0) {
+      const urls = [combinedURLInputValue];
+      const questions = [...this.state.questions];
+      questions.push({ urls, isControlLeft });
       this.setState({
-        questionPairs: questions,
-        invalidQuestionInput: false,
-        controlInputValue: "",
-        experimentalInputValue: ""
+        questions,
+        invalidCombinedURLInput: false
       });
+      return true;
     } else {
-      this.setState({ invalidQuestionInput: true });
+      this.setState({
+        invalidCombinedURLInput: true
+      });
+      return false;
+    }
+  };
+
+  handleAddTwoURLQuestion = (controlInputValue, experimentalInputValue) => {
+    if (controlInputValue.length > 0 && experimentalInputValue.length > 0) {
+      const urls = [controlInputValue, experimentalInputValue];
+      const isControlLeft = null;
+      const questions = [...this.state.questions];
+      questions.push({ urls, isControlLeft });
+      this.setState({
+        questions,
+        invalidControlURLInput: false,
+        invalidExperimentalURLInput: false
+      });
+      return true;
+    } else {
+      this.setState({
+        invalidControlURLInput: controlInputValue.length <= 0,
+        invalidExperimentalURLInput: experimentalInputValue.length <= 0
+      });
+      return false;
     }
   };
 
@@ -144,7 +194,7 @@ class Create extends Component {
     if (validationInfo.isValid) {
       const surveyGen = new SurveyGenerator();
       const generatedSurvey = surveyGen.getPreviewDocument(
-        this.state.questionPairs,
+        this.state.questions,
         this.state.questionDescriptionInputValue
       );
 
@@ -176,7 +226,7 @@ class Create extends Component {
     if (validationInfo.isValid) {
       const surveyGen = new SurveyGenerator();
       const generatedSurvey = surveyGen.getDocument(
-        this.state.questionPairs,
+        this.state.questions,
         this.state.questionDescriptionInputValue
       );
 
@@ -242,20 +292,12 @@ class Create extends Component {
     }
   };
 
-  handleDeleteQuestionPair = e => {
-    const questionPairs = this.state.questionPairs.filter((question, index) => {
-      return index !== this.state.selectedQuestionPair;
+  handleDeleteQuestion = e => {
+    const questions = this.state.questions.filter((question, index) => {
+      return index !== this.state.selectedQuestions;
     });
-    let selectedQuestionPair = -1;
-    this.setState({ questionPairs, selectedQuestionPair });
-  };
-
-  handleExperimentalInputChange = e => {
-    this.setState({ experimentalInputValue: e.target.value });
-  };
-
-  handleControlInputChange = e => {
-    this.setState({ controlInputValue: e.target.value });
+    let selectedQuestions = -1;
+    this.setState({ questions, selectedQuestions });
   };
 
   handleTitleChange = e => {
@@ -334,134 +376,103 @@ class Create extends Component {
               </small>
             </div>
             <h5 className="border-bottom my-3">Questions</h5>
-            <div className="input-group">
-              <div className="input-group-prepend">
-                <span className="input-group-text">Enter URLs</span>
-              </div>
-              <input
-                type="text"
-                className={
-                  this.state.invalidQuestionInput &&
-                  this.state.controlInputValue.length <= 0
-                    ? "form-control is-invalid"
-                    : "form-control"
-                }
-                name="controlURL"
-                placeholder="Control"
-                value={this.state.controlInputValue}
-                onChange={this.handleControlInputChange}
-              />
-              <input
-                className={
-                  this.state.invalidQuestionInput &&
-                  this.state.experimentalInputValue.length <= 0
-                    ? "form-control is-invalid"
-                    : "form-control"
-                }
-                type="text"
-                name="experimentalURL"
-                placeholder="Experimental"
-                value={this.state.experimentalInputValue}
-                onChange={this.handleExperimentalInputChange}
-              />
-              <div className="input-group-append">
-                <button
-                  className="btn btn-outline-success"
-                  onClick={this.handleAddQuestionPair}
-                >
-                  Add
-                </button>
-              </div>
-              {this.state.invalidQuestionInput && (
-                <div className="invalid-tooltip d-block">
-                  Must enter valid URL
-                </div>
-              )}
-            </div>
-          </div>
-          <table
-            className={
-              this.state.questionPairs.length <= 0
-                ? "table table-bordered mt-2"
-                : "table table-hover table-bordered mt-2"
-            }
-          >
-            <thead className="thead-dark">
-              <tr>
-                <th scope="col">#</th>
-                <th scope="col">Control</th>
-                <th scope="col">Experimental</th>
-              </tr>
-            </thead>
-            <tbody>{this.getQuestionPairRows()}</tbody>
-          </table>
-          <button
-            className="btn btn-danger"
-            disabled={
-              this.state.questionPairs[this.state.selectedQuestionPair] ===
-              void 0
-            }
-            onClick={this.handleDeleteQuestionPair}
-          >
-            Delete
-          </button>
-          <h5 className="border-bottom my-3">HIT Configuration</h5>
-          <div className="form-group form-check">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              checked={this.state.reverseAssignment}
-              onChange={this.handleReverseAssignmentChange}
+            <AddSingleURL
+              onAddURLQuestion={this.handleAddURLQuestion}
+              invalidCombinedURLInput={this.state.invalidCombinedURLInput}
             />
-            <label className="form-check-label">
-              Create reverse assignment
-            </label>
-            <small className="form-text text-muted">
-              This will create another HIT with all of the questions in reverse
-              order to remove some bias
-            </small>
-          </div>
-          <div className="form-group">
-            <label>Assignment reward</label>
-            <div className="input-group">
-              <div className="input-group-prepend">
-                <span className="input-group-text">$</span>
-              </div>
+            <div className="text-center my-1">
+              <strong>OR</strong>
+            </div>
+            <AddTwoURLs
+              onAddTwoURLQuestion={this.handleAddTwoURLQuestion}
+              invalidControlURLInput={this.state.invalidControlURLInput}
+              invalidExperimentalURLInput={
+                this.state.invalidExperimentalURLInput
+              }
+            />
+            <table
+              className={
+                this.state.questions.length <= 0
+                  ? "table table-bordered mt-2"
+                  : "table table-hover table-bordered mt-2"
+              }
+            >
+              <thead className="thead-dark">
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Control URL</th>
+                  <th scope="col">Experimental URL</th>
+                </tr>
+              </thead>
+              <tbody>{this.getQuestionRows()}</tbody>
+            </table>
+            <button
+              className="btn btn-danger"
+              disabled={
+                this.state.questions[this.state.selectedQuestions] === void 0
+              }
+              onClick={this.handleDeleteQuestion}
+            >
+              Delete
+            </button>
+            <h5 className="border-bottom my-3">HIT Configuration</h5>
+            <div className="form-group form-check">
               <input
-                type="text"
-                className="form-control"
-                value={this.getAssignmentRewardValue()}
-                onChange={this.handleRewardChange}
-                readOnly={this.state.recommendedReward}
+                type="checkbox"
+                className="form-check-input"
+                checked={this.state.reverseAssignment}
+                onChange={this.handleReverseAssignmentChange}
               />
+              <label className="form-check-label">
+                Create reverse assignment
+              </label>
+              <small className="form-text text-muted">
+                This will create another HIT with all of the questions in
+                reverse order to remove some bias
+              </small>
             </div>
             <div className="form-group">
-              <div className="form-check">
-                <label className="form-check-label">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    checked={this.state.recommendedReward}
-                    onChange={this.handleRecommendCheckboxChange}
-                  />
-                  Use recommended reward
-                </label>
+              <label>Assignment reward</label>
+              <div className="input-group">
+                <div className="input-group-prepend">
+                  <span className="input-group-text">$</span>
+                </div>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={this.getAssignmentRewardValue()}
+                  onChange={this.handleRewardChange}
+                  readOnly={this.state.recommendedReward}
+                />
+              </div>
+              <div className="form-group">
+                <div className="form-check">
+                  <label className="form-check-label">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      checked={this.state.recommendedReward}
+                      onChange={this.handleRecommendCheckboxChange}
+                    />
+                    Use recommended reward
+                  </label>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="d-flex">
-            <button
-              className="btn btn-info btn-block w-75 mr-2"
-              onClick={this.handlePreviewButton}
-            >
-              Preview
-            </button>
-            <button
-              className="btn btn-success w-25"
-              onClick={this.handlePublishButton}
-            >
-              Publish
-            </button>
+            <div className="d-flex">
+              <button
+                className="btn btn-info btn-block w-75 mr-2"
+                onClick={this.handlePreviewButton}
+              >
+                Preview
+              </button>
+              <button
+                className="btn btn-success w-25"
+                onClick={this.handlePublishButton}
+              >
+                Publish
+              </button>
+            </div>
           </div>
         </div>
       </div>

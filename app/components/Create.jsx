@@ -3,38 +3,32 @@ import ErrorModal from "./ErrorModal";
 import AddTwoURLs from "./AddTwoURLs";
 import SurveyGenerator from "../SurveyGenerator";
 import AddSingleURL from "./AddSingleURL";
+import AssignmentReward from "./AssignmentReward";
+import SecureConfirmationModal from "./SecureConfirmationModal";
 
 let window;
 
 class Create extends Component {
+  assignmentReward = "0.00";
+  defaultAssignmentsPerHIT = 10;
+
   state = {
     questions: [],
     selectedQuestions: -1,
-    invalidCombinedURLInput: false,
-    invalidExperimentalURLInput: false,
-    invalidControlURLInput: false,
     hitTitleInputValue: "",
     hitDescriptionInputValue: "",
     questionDescriptionInputValue: "",
     reverseAssignment: true,
-    assignmentReward: 0,
-    recommendedReward: true,
     errorModalVisible: false,
-    errorModalBody: ""
+    randomizeControlOrder: true,
+    assignmentsPerHIT: this.defaultAssignmentsPerHIT,
+    errorModalBody: "",
+    secureConfirmModalVisible: false,
+    secureConfirmModalBody: ""
   };
 
-  //TODO fix this method to get rid of setState in render method
-  getAssignmentRewardValue = () => {
-    if (this.state.recommendedReward) {
-      let calculatedReward =
-        Math.round(
-          this.state.questions.length * 1.5 * 0.108333333 * 1.25 * 100
-        ) / 100;
-      //if (calculatedReward != this.state.assignmentReward) {
-      //this.setState({ assignmentReward: calculatedReward });
-      //}
-    }
-    return this.state.assignmentReward;
+  getTotalCost = () => {
+    return (this.state.assignmentsPerHIT * this.assignmentReward).toFixed(2);
   };
 
   getQuestionRows = () => {
@@ -151,42 +145,22 @@ class Create extends Component {
   };
 
   handleAddURLQuestion = (combinedURLInputValue, isControlLeft) => {
-    if (combinedURLInputValue.length > 0) {
-      const urls = [combinedURLInputValue];
-      const questions = [...this.state.questions];
-      questions.push({ urls, isControlLeft });
-      this.setState({
-        questions,
-        invalidCombinedURLInput: false
-      });
-      return true;
-    } else {
-      this.setState({
-        invalidCombinedURLInput: true
-      });
-      return false;
-    }
+    const urls = [combinedURLInputValue];
+    const questions = [...this.state.questions];
+    questions.push({ urls, isControlLeft });
+    this.setState({
+      questions
+    });
   };
 
   handleAddTwoURLQuestion = (controlInputValue, experimentalInputValue) => {
-    if (controlInputValue.length > 0 && experimentalInputValue.length > 0) {
-      const urls = [controlInputValue, experimentalInputValue];
-      const isControlLeft = null;
-      const questions = [...this.state.questions];
-      questions.push({ urls, isControlLeft });
-      this.setState({
-        questions,
-        invalidControlURLInput: false,
-        invalidExperimentalURLInput: false
-      });
-      return true;
-    } else {
-      this.setState({
-        invalidControlURLInput: controlInputValue.length <= 0,
-        invalidExperimentalURLInput: experimentalInputValue.length <= 0
-      });
-      return false;
-    }
+    const urls = [controlInputValue, experimentalInputValue];
+    const isControlLeft = null;
+    const questions = [...this.state.questions];
+    questions.push({ urls, isControlLeft });
+    this.setState({
+      questions
+    });
   };
 
   handlePreviewButton = e => {
@@ -195,7 +169,8 @@ class Create extends Component {
       const surveyGen = new SurveyGenerator();
       const generatedSurvey = surveyGen.getPreviewDocument(
         this.state.questions,
-        this.state.questionDescriptionInputValue
+        this.state.questionDescriptionInputValue,
+        this.state.randomizeControlOrder
       );
 
       // Modules to control application and create native browser window
@@ -224,65 +199,11 @@ class Create extends Component {
   handlePublishButton = e => {
     const validationInfo = this.validateAll();
     if (validationInfo.isValid) {
-      const surveyGen = new SurveyGenerator();
-      const generatedSurvey = surveyGen.getDocument(
-        this.state.questions,
-        this.state.questionDescriptionInputValue
-      );
-
-      const AWS = require("aws-sdk");
-      AWS.config.update({
-        credentials: new AWS.Credentials({
-          accessKeyId: this.props.apiAccessID,
-          secretAccessKey: this.props.apiSecretKey
-        }),
-        region: "us-east-1"
-      });
-      const endpoint =
-        "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
-      // Uncomment this line to use in production
-      // endpoint = 'https://mturk-requester.us-east-1.amazonaws.com';
-
-      const mturk = new AWS.MTurk({ endpoint: endpoint });
-
-      // Test your ability to connect to MTurk by checking your account balance
-      mturk.getAccountBalance(function(err, data) {
-        if (err) {
-          console.log(err.message);
-        } else {
-          // Sandbox balance check will always return $10,000
-          console.log("I have " + data.AvailableBalance + " in my account.");
-        }
-      });
-
-      /*
-      Publish a new HIT to the Sandbox marketplace start by reading in the HTML markup specifying your task from a seperate file (my_question.xml). To learn more about the HTML question type, see here: http://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_HTMLQuestionArticle.html
-      */
-
-      // Construct the HIT object below
-      const myHIT = {
-        Title: this.state.hitTitleInputValue,
-        Description: this.state.hitDescriptionInputValue,
-        MaxAssignments: 1,
-        LifetimeInSeconds: 3600,
-        AssignmentDurationInSeconds: 600,
-        Reward: "" + this.state.assignmentReward,
-        Question: generatedSurvey
-      };
-
-      mturk.createHIT(myHIT, function(err, data) {
-        if (err) {
-          console.log(err.message);
-        } else {
-          console.log(data);
-          // Save the HITId printed by data.HIT.HITId and use it in the RetrieveAndApproveResults.js code sample
-          console.log(
-            "HIT has been successfully published here: https://workersandbox.mturk.com/mturk/preview?groupId=" +
-              data.HIT.HITTypeId +
-              " with this HITId: " +
-              data.HIT.HITId
-          );
-        }
+      this.setState({
+        secureConfirmModalBody:
+          "Are you sure you want to publish this survey? It will cost $" +
+          this.getTotalCost(),
+        secureConfirmModalVisible: true
       });
     } else {
       this.setState({
@@ -316,16 +237,124 @@ class Create extends Component {
     this.setState({ reverseAssignment: e.target.checked });
   };
 
-  handleRecommendCheckboxChange = e => {
-    this.setState({ recommendedReward: e.target.checked });
-  };
-
-  handleRewardChange = e => {
-    this.setState({ assignmentReward: e.target.value });
-  };
-
   handleErrorModalClose = e => {
     this.setState({ errorModalVisible: false });
+  };
+
+  handleRewardChange = assignmentReward => {
+    this.assignmentReward = assignmentReward;
+  };
+
+  handleAssignmentsPerHITChange = e => {
+    this.setState({ assignmentsPerHIT: e.target.value });
+  };
+
+  handleRandomizeControlOrderChange = e => {
+    this.setState({ randomizeControlOrder: e.target.checked });
+  };
+
+  handleAssignmentsPerHITBlur = e => {
+    let assignmentsPerHIT = e.target.value;
+    assignmentsPerHIT = assignmentsPerHIT.replace(/[^.\d]/g, "");
+
+    if (assignmentsPerHIT.startsWith(".")) {
+      assignmentsPerHIT = "0" + assignmentsPerHIT;
+    }
+
+    if (assignmentsPerHIT.endsWith(".")) {
+      assignmentsPerHIT = assignmentsPerHIT.substring(
+        0,
+        assignmentsPerHIT.length - 2
+      );
+    }
+
+    if (assignmentsPerHIT == "") {
+      assignmentsPerHIT = this.defaultAssignmentsPerHIT;
+    }
+
+    let assignPerHITInt = parseInt(assignmentsPerHIT);
+    if (isNaN(assignPerHITInt)) {
+      assignPerHITInt = this.defaultAssignmentsPerHIT;
+    }
+
+    assignPerHITInt = Math.max(0, Math.min(1000, rewardFloat));
+
+    this.setState({ assignmentsPerHIT: assignPerHITInt });
+  };
+
+  handlePublishCancel = id => {
+    this.setState({
+      secureConfirmModalBody: "",
+      secureConfirmModalVisible: false
+    });
+  };
+
+  handleConfirmPublish = id => {
+    this.setState({
+      secureConfirmModalBody: "",
+      secureConfirmModalVisible: false
+    });
+
+    const surveyGen = new SurveyGenerator();
+    const generatedSurvey = surveyGen.getDocument(
+      this.state.questions,
+      this.state.questionDescriptionInputValue,
+      this.state.randomizeControlOrder
+    );
+
+    const AWS = require("aws-sdk");
+    AWS.config.update({
+      credentials: new AWS.Credentials({
+        accessKeyId: this.props.apiAccessID,
+        secretAccessKey: this.props.apiSecretKey
+      }),
+      region: "us-east-1"
+    });
+    const endpoint = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
+    // Uncomment this line to use in production
+    // endpoint = 'https://mturk-requester.us-east-1.amazonaws.com';
+
+    const mturk = new AWS.MTurk({ endpoint: endpoint });
+
+    // Test your ability to connect to MTurk by checking your account balance
+    mturk.getAccountBalance(function(err, data) {
+      if (err) {
+        console.log(err.message);
+      } else {
+        // Sandbox balance check will always return $10,000
+        console.log("I have " + data.AvailableBalance + " in my account.");
+      }
+    });
+
+    /*
+      Publish a new HIT to the Sandbox marketplace start by reading in the HTML markup specifying your task from a seperate file (my_question.xml). To learn more about the HTML question type, see here: http://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_HTMLQuestionArticle.html
+      */
+
+    // Construct the HIT object below
+    const myHIT = {
+      Title: this.state.hitTitleInputValue,
+      Description: this.state.hitDescriptionInputValue,
+      MaxAssignments: this.state.assignmentsPerHIT,
+      LifetimeInSeconds: 3600,
+      AssignmentDurationInSeconds: 600,
+      Reward: this.assignmentReward,
+      Question: generatedSurvey
+    };
+
+    mturk.createHIT(myHIT, function(err, data) {
+      if (err) {
+        console.log(err.message);
+      } else {
+        console.log(data);
+        // Save the HITId printed by data.HIT.HITId and use it in the RetrieveAndApproveResults.js code sample
+        console.log(
+          "HIT has been successfully published here: https://workersandbox.mturk.com/mturk/preview?groupId=" +
+            data.HIT.HITTypeId +
+            " with this HITId: " +
+            data.HIT.HITId
+        );
+      }
+    });
   };
 
   render() {
@@ -338,6 +367,12 @@ class Create extends Component {
             modalBody={this.state.errorModalBody}
             isVisible={this.state.errorModalVisible}
             onModalClose={this.handleErrorModalClose}
+          />
+          <SecureConfirmationModal
+            modalBody={this.state.secureConfirmModalBody}
+            isVisible={this.state.secureConfirmModalVisible}
+            onModalCancel={this.handlePublishCancel}
+            onModalConfirm={this.handleConfirmPublish}
           />
           <h3 className="card-title text-center">Create a New HIT</h3>
           <div className="mt-2">
@@ -376,20 +411,11 @@ class Create extends Component {
               </small>
             </div>
             <h5 className="border-bottom my-3">Questions</h5>
-            <AddSingleURL
-              onAddURLQuestion={this.handleAddURLQuestion}
-              invalidCombinedURLInput={this.state.invalidCombinedURLInput}
-            />
+            <AddSingleURL onAddURLQuestion={this.handleAddURLQuestion} />
             <div className="text-center my-1">
               <strong>OR</strong>
             </div>
-            <AddTwoURLs
-              onAddTwoURLQuestion={this.handleAddTwoURLQuestion}
-              invalidControlURLInput={this.state.invalidControlURLInput}
-              invalidExperimentalURLInput={
-                this.state.invalidExperimentalURLInput
-              }
-            />
+            <AddTwoURLs onAddTwoURLQuestion={this.handleAddTwoURLQuestion} />
             <table
               className={
                 this.state.questions.length <= 0
@@ -431,33 +457,34 @@ class Create extends Component {
                 reverse order to remove some bias
               </small>
             </div>
+            <div className="form-group form-check">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                checked={this.state.randomizeControlOrder}
+                onChange={this.handleRandomizeControlOrderChange}
+              />
+              <label className="form-check-label">
+                Randomize control order
+              </label>
+              <small className="form-text text-muted">
+                This will randomize the placement of the control URL to the left
+                or right. Has no effect on questions with one URL.
+              </small>
+            </div>
+            <AssignmentReward
+              numOfQuestions={this.state.questions.length}
+              onRewardChange={this.handleRewardChange}
+            />
             <div className="form-group">
-              <label>Assignment reward</label>
-              <div className="input-group">
-                <div className="input-group-prepend">
-                  <span className="input-group-text">$</span>
-                </div>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={this.getAssignmentRewardValue()}
-                  onChange={this.handleRewardChange}
-                  readOnly={this.state.recommendedReward}
-                />
-              </div>
-              <div className="form-group">
-                <div className="form-check">
-                  <label className="form-check-label">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      checked={this.state.recommendedReward}
-                      onChange={this.handleRecommendCheckboxChange}
-                    />
-                    Use recommended reward
-                  </label>
-                </div>
-              </div>
+              <label>Assignments per HIT</label>
+              <input
+                type="text"
+                className="form-control"
+                value={this.state.assignmentsPerHIT}
+                onChange={this.handleAssignmentsPerHITChange}
+                onBlur={this.handleAssignmentsPerHITBlur}
+              />
             </div>
             <div className="d-flex">
               <button
@@ -470,7 +497,8 @@ class Create extends Component {
                 className="btn btn-success w-25"
                 onClick={this.handlePublishButton}
               >
-                Publish
+                Publish ($
+                {this.getTotalCost()})
               </button>
             </div>
           </div>

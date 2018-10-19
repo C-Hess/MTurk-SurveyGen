@@ -10,7 +10,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({ width: 800, height: 600 });
   mainWindow.setTitle("Mechanical Turk Survey Generator");
   // and load the index.html of the app.
-  mainWindow.loadFile("app/index.html");
+  mainWindow.loadFile("build/index.html");
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools()
@@ -23,9 +23,9 @@ function createWindow() {
     mainWindow = null;
   });
 
-  BrowserWindow.addDevToolsExtension(
-    "/home/cameron/.config/google-chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/3.4.0_0"
-  );
+  //BrowserWindow.addDevToolsExtension(
+  //  "/home/cameron/.config/google-chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/3.4.0_0"
+  //);
 }
 
 // This method will be called when Electron has finished

@@ -1,9 +1,52 @@
 import React, { Component } from "react";
+import Utils from "../Utils";
 
 class AddTwoURLs extends Component {
   state = {
     controlInputValue: "",
-    experimentalInputValue: ""
+    experimentalInputValue: "",
+    isControlURLInvalid: false,
+    isExperimentalURLInvalid: false,
+    invalidReason: ""
+  };
+
+  handleAddURLS = e => {
+    const controlVal = this.state.controlInputValue;
+    const experimentalVal = this.state.experimentalInputValue;
+
+    let invalidReason = "";
+    let controlInvalid = controlVal <= 0;
+    let experimentalInvalid = experimentalVal <= 0;
+
+    if (controlInvalid || experimentalInvalid) {
+      invalidReason = "URLs cannot be empty";
+    }
+
+    const invalidControlURL = !Utils.isValidURL(controlVal);
+    const invalidExperimentalURL = !Utils.isValidURL(experimentalVal);
+    controlInvalid = controlInvalid || invalidControlURL;
+    experimentalInvalid = experimentalInvalid || invalidExperimentalURL;
+
+    if (invalidControlURL || invalidExperimentalURL) {
+      invalidReason = "Invalid URLs";
+    }
+
+    if (controlInvalid || experimentalInvalid) {
+      this.setState({
+        isControlURLInvalid: controlInvalid,
+        isExperimentalURLInvalid: experimentalInvalid,
+        invalidReason
+      });
+      return;
+    }
+
+    this.props.onAddTwoURLQuestion(controlVal, experimentalVal);
+    this.setState({
+      isControlURLInvalid: false,
+      isExperimentalURLInvalid: false,
+      controlInputValue: "",
+      experimentalInputValue: ""
+    });
   };
 
   handleExperimentalInputChange = e => {
@@ -23,7 +66,7 @@ class AddTwoURLs extends Component {
         <input
           type="text"
           className={
-            this.props.invalidControlURLInput
+            this.state.isControlURLInvalid
               ? "form-control is-invalid"
               : "form-control"
           }
@@ -34,7 +77,7 @@ class AddTwoURLs extends Component {
         />
         <input
           className={
-            this.props.invalidExperimentalURLInput
+            this.state.isExperimentalURLInvalid
               ? "form-control is-invalid"
               : "form-control"
           }
@@ -47,25 +90,16 @@ class AddTwoURLs extends Component {
         <div className="input-group-append">
           <button
             className="btn btn-outline-success"
-            onClick={() => {
-              const success = this.props.onAddTwoURLQuestion(
-                this.state.controlInputValue,
-                this.state.experimentalInputValue
-              );
-              if (success) {
-                this.setState({
-                  controlInputValue: "",
-                  experimentalInputValue: ""
-                });
-              }
-            }}
+            onClick={this.handleAddURLS}
           >
             Add
           </button>
         </div>
-        {(this.props.invalidControlURLInput ||
-          this.props.invalidExperimentalURLInput) && (
-          <div className="invalid-tooltip d-block">Must enter valid URL</div>
+        {(this.state.isControlURLInvalid ||
+          this.state.isExperimentalURLInvalid) && (
+          <div className="invalid-tooltip d-block">
+            {this.state.invalidReason}
+          </div>
         )}
       </div>
     );

@@ -33,7 +33,7 @@ class ErrorModal extends Component {
                 }}
               >
                 <h5 className="modal-title">
-                  <i className="fas fa-exclamation-triangle mr-2" />
+                  <i className="fas fa-exclamation-triangle mr-5" />
                   Error
                 </h5>
                 <button

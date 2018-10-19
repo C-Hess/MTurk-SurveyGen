@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "main": "./main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "babel app/ --source-maps true --copy-files --out-dir build; electron ."
   },
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^5.3.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
-    "electron-prebuilt-compile": "^3.0.0",
+    "electron-builder": "^20.28.4",
     "electron-react-devtools": "^0.5.3"
   },
   "dependencies": {
@@ -19,5 +19,16 @@
     "react": "^16.5.2",
     "react-dom": "^16.5.2",
     "tmp": "0.0.33"
+  },
+  "build": {
+    "appId": "edu.unomaha.surveygen",
+    "linux": {
+        "category": "edu.unomaha.surveygen.linux"
+    },
+    "files": [
+        "build/",
+        "node_modules",
+        "main.js"
+    ]
   }
 }

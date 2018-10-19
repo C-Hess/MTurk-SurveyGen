@@ -1,9 +1,36 @@
 import React, { Component } from "react";
+import Utils from "../Utils";
 
 class AddSingleURL extends Component {
   state = {
     combinedURLInputValue: "",
-    isControlLeft: true
+    isControlLeft: true,
+    isInvalidInput: false,
+    invalidReason: ""
+  };
+
+  handleAddURL = e => {
+    if (this.state.combinedURLInputValue.length <= 0) {
+      this.setState({
+        isInvalidInput: true,
+        invalidReason: "URL cannot be empty"
+      });
+      return;
+    }
+
+    if (!Utils.isValidURL(this.state.combinedURLInputValue)) {
+      this.setState({
+        isInvalidInput: true,
+        invalidReason: "Invalid URL"
+      });
+      return;
+    }
+
+    this.props.onAddURLQuestion(
+      this.state.combinedURLInputValue,
+      this.state.isControlLeft
+    );
+    this.setState({ isInvalidInput: false, combinedURLInputValue: "" });
   };
 
   handleControlOnLeftChange = e => {
@@ -60,23 +87,15 @@ class AddSingleURL extends Component {
           </button>
           <button
             className="btn btn-outline-success"
-            onClick={() => {
-              const success = this.props.onAddURLQuestion(
-                this.state.combinedURLInputValue,
-                this.state.isControlLeft
-              );
-              if (success) {
-                this.setState({
-                  combinedURLInputValue: ""
-                });
-              }
-            }}
+            onClick={this.handleAddURL}
           >
             Add
           </button>
         </div>
-        {this.props.invalidCombinedURLInput && (
-          <div className="invalid-tooltip d-block">Must enter valid URL</div>
+        {this.state.isInvalidInput && (
+          <div className="invalid-tooltip d-block">
+            {this.state.invalidReason}
+          </div>
         )}
       </div>
     );

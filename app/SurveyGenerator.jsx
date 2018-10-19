@@ -10,7 +10,12 @@ class SurveyGenerator {
 
   xmlFooter = `]]></HTMLContent><FrameHeight>450</FrameHeight></HTMLQuestion>`;
 
-  getHTML = (questions, questionDescription, isPreview) => {
+  getHTML = (
+    questions,
+    questionDescription,
+    randomizeControlOrder,
+    isPreview = false
+  ) => {
     return ReactDomServer.renderToString(
       <html>
         <head>
@@ -52,7 +57,11 @@ class SurveyGenerator {
                 name="assignmentId"
                 id="assignmentId"
               />
-              {this.getQuestions(questions, questionDescription)}
+              {this.getQuestions(
+                questions,
+                questionDescription,
+                randomizeControlOrder
+              )}
               <input
                 className="btn btn-primary mb-2"
                 type="submit"
@@ -69,141 +78,140 @@ class SurveyGenerator {
     );
   };
 
-  getSingleURLQuestion = (question, index) => {
-    const videoURLRegex = /youtu(be\.com|\.be)\/(watch\?v=|embed)?\/?([a-zA-Z1-9_-]+)(&.*)?/;
-    const urls = question.urls;
-    const youtubeMatchURL = videoURLRegex.exec(urls[0]);
-    const isControlLeft = question.isControlLeft;
-    let urlYoutubeID = null;
-    if (youtubeMatchURL != null) {
-      urlYoutubeID = youtubeMatchURL[3];
+  getURLContent = url => {
+    const videoURLRegex = /youtu(be\.com|\.be)\/(watch\?v=|embed)?\/?([a-zA-Z0-9_-]+)(&.*)?/;
+    const youtubeMatchURL = videoURLRegex.exec(url);
+    const isYoutubeURL = youtubeMatchURL != null;
+    if (isYoutubeURL) {
+      const urlYoutubeID = youtubeMatchURL[3];
+      return {
+        type: "video",
+        embed: (
+          <div className="embed-responsive embed-responsive-16by9">
+            <iframe
+              src={
+                "https://www.youtube-nocookie.com/embed/" +
+                urlYoutubeID +
+                "?modestbranding=0&rel=0&showinfo=0"
+              }
+              frameBorder="0"
+              allow="encrypted-media"
+              allowFullScreen={true}
+            />
+          </div>
+        )
+      };
+    } else {
+      return {
+        type: "image",
+        embed: <img className="img-fluid" src={url} />
+      };
     }
+  };
 
+  getRadioButton = (index, type, isLeft, isControl) => {
+    return (
+      <div className="form-check text-center mt-2">
+        <input
+          className="form-check-input"
+          type="radio"
+          name={"question" + index}
+          value={isControl ? "c" : "e"}
+        />
+        <label className="form-check-label">
+          {isLeft ? "Left" : "Right"} {type}
+        </label>
+      </div>
+    );
+  };
+
+  getSingleURLQuestion = (question, index) => {
+    const questionContent = this.getURLContent(question.urls[0]);
     return (
       <div>
-        <div className="embed-responsive embed-responsive-16by9">
-          <iframe
-            src={
-              "https://www.youtube-nocookie.com/embed/" +
-              urlYoutubeID +
-              "?modestbranding=0&rel=0&showinfo=0"
-            }
-            frameborder="0"
-            allow="autoplay; encrypted-media"
-            allowfullscreen
-          />
-        </div>
+        {questionContent.embed}
         <div className="row">
           <div className="col-sm">
-            <div className="form-check text-center mt-2">
-              <input
-                className="form-check-input"
-                type="radio"
-                name={"question" + index}
-                value={isControlLeft ? "c" : "e"}
-              />
-              <label className="form-check-label">Left video</label>
-            </div>
+            {this.getRadioButton(
+              index,
+              questionContent.type,
+              true,
+              question.isControlLeft
+            )}
           </div>
           <div className="col-sm">
-            <div className="form-check text-center mt-2">
-              <input
-                className="form-check-input"
-                type="radio"
-                name={"question" + index}
-                value={isControlLeft ? "e" : "c"}
-              />
-              <label className="form-check-label">Right video</label>
-            </div>
+            {this.getRadioButton(
+              index,
+              questionContent.type,
+              false,
+              !question.isControlLeft
+            )}
           </div>
         </div>
       </div>
     );
   };
 
-  getTwoURLQuestion = (question, index) => {
-    const videoURLRegex = /youtu(be\.com|\.be)\/(watch\?v=|embed)?\/?([a-zA-Z0-9_-]+)(&.*)?/;
+  getTwoURLQuestion = (question, index, randomizeControlOrder) => {
     const urls = question.urls;
-    const youtubeMatchControlURL = videoURLRegex.exec(urls[0]);
-    let controlYoutubeID = null;
-    if (youtubeMatchControlURL != null) {
-      controlYoutubeID = youtubeMatchControlURL[3];
+    let leftQuestionContent = this.getURLContent(urls[0]);
+    let rightQuestionContent = this.getURLContent(urls[1]);
+    let isControlLeft = true;
+
+    if (randomizeControlOrder) {
+      console.log("Here");
+      if (Math.random() >= 0.5) {
+        const tmp = rightQuestionContent;
+        rightQuestionContent = leftQuestionContent;
+        leftQuestionContent = tmp;
+        isControlLeft = false;
+      }
     }
 
-    const youtubeMatchExperimentalURL = videoURLRegex.exec(urls[1]);
-    let experimentalYoutubeID = null;
-    if (youtubeMatchExperimentalURL != null) {
-      experimentalYoutubeID = youtubeMatchExperimentalURL[3];
-    }
     return (
       <div className="row">
         <div className="col-sm">
-          <div className="embed-responsive embed-responsive-16by9">
-            <iframe
-              src={
-                "https://www.youtube-nocookie.com/embed/" +
-                controlYoutubeID +
-                "?modestbranding=0&rel=0&showinfo=0"
-              }
-              frameborder="0"
-              allow="encrypted-media"
-              allowfullscreen
-            />
-          </div>
-          <div className="form-check text-center mt-2">
-            <input
-              className="form-check-input"
-              type="radio"
-              name={"question" + index}
-              value="c"
-            />
-            <label className="form-check-label">Left video</label>
-          </div>
+          {leftQuestionContent.embed}
+          {this.getRadioButton(
+            index,
+            leftQuestionContent.type,
+            true,
+            isControlLeft
+          )}
         </div>
         <div className="col-sm">
-          <div className="embed-responsive embed-responsive-16by9">
-            <iframe
-              src={
-                "https://www.youtube-nocookie.com/embed/" +
-                experimentalYoutubeID +
-                "?modestbranding=0&rel=0&showinfo=0"
-              }
-              frameborder="0"
-              allow="encrypted-media"
-              allowfullscreen
-            />
-          </div>
-          <div className="form-check text-center mt-2">
-            <input
-              className="form-check-input"
-              type="radio"
-              name={"question" + index}
-              value="e"
-            />
-            <label className="form-check-label">Right video</label>
-          </div>
+          {rightQuestionContent.embed}
+          {this.getRadioButton(
+            index,
+            rightQuestionContent.type,
+            false,
+            !isControlLeft
+          )}
         </div>
       </div>
     );
   };
 
-  getQuestions = (questions, questionDescription) => {
+  getQuestions = (questions, questionDescription, randomizeControlOrder) => {
+    console.log("2. " + randomizeControlOrder);
     let htmlQuestions = questions.map((question, index) => {
       return (
-        <div className="card my-2 mx-5">
+        <div key={index} className="card my-2 mx-5">
           <div className="card-body">
             <div className="card-title">
               <h4>
-                <strong>
-                  Question {index + 1}:{"\u00A0"}
-                </strong>
-                {questionDescription}
+                <strong>Question {index + 1}:</strong>
+                {" " + questionDescription}
               </h4>
             </div>
             <div className="container">
               {question.urls.length == 1
-                ? this.getSingleURLQuestion(question)
-                : this.getTwoURLQuestion(question)}
+                ? this.getSingleURLQuestion(question, index)
+                : this.getTwoURLQuestion(
+                    question,
+                    index,
+                    randomizeControlOrder
+                  )}
             </div>
           </div>
         </div>
@@ -212,14 +220,24 @@ class SurveyGenerator {
     return htmlQuestions;
   };
 
-  getPreviewDocument = (questions, questionDescription) => {
-    return this.getHTML(questions, questionDescription, true);
+  getPreviewDocument = (
+    questions,
+    questionDescription,
+    randomizeControlOrder
+  ) => {
+    console.log("1. " + randomizeControlOrder);
+    return this.getHTML(
+      questions,
+      questionDescription,
+      randomizeControlOrder,
+      true
+    );
   };
 
-  getDocument = (questions, questionDescription) => {
+  getDocument = (questions, questionDescription, randomizeControlOrder) => {
     return (
       this.xmlHeader +
-      this.getHTML(questions, questionDescription, false) +
+      this.getHTML(questions, questionDescription, randomizeControlOrder) +
       this.xmlFooter
     );
   };

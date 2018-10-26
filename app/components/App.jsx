@@ -3,14 +3,13 @@ import Create from "./Create";
 import Account from "./Account";
 import Manage from "./Manage";
 import NavBar from "./NavBar";
+import AppFileConfig from "../AppFileConfig";
+import { error } from "util";
 
 class App extends Component {
-  state = {
-    pages: [{ name: "Create" }, { name: "Manage" }, { name: "Account" }],
-    currentPage: 0,
-    apiAccessID: "",
-    apiSecretKey: ""
-  };
+  pages = [{ name: "Create" }, { name: "Manage" }, { name: "Account" }];
+
+  state = AppFileConfig.loadAppStateFromFile();
 
   handlePageSwitch = currentPage => {
     if (currentPage != this.state.currentPage) {
@@ -28,11 +27,35 @@ class App extends Component {
     }
   };
 
+  getAPIInstance = () => {
+    if (
+      this.state.apiAccessID.length <= 0 ||
+      this.state.apiSecretKey.length <= 0
+    ) {
+      throw new Error("Account information not set");
+    }
+    const AWS = require("aws-sdk");
+    AWS.config.update({
+      credentials: new AWS.Credentials({
+        accessKeyId: this.state.apiAccessID,
+        secretAccessKey: this.state.apiSecretKey
+      }),
+      region: "us-east-1"
+    });
+    const endpoint = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
+
+    return new AWS.MTurk({ endpoint: endpoint });
+  };
+
+  componentDidUpdate() {
+    AppFileConfig.saveAppStateToFile(this.state);
+  }
+
   render() {
     return (
       <React.Fragment>
         <NavBar
-          pages={this.state.pages}
+          pages={this.pages}
           currentPage={this.state.currentPage}
           onPageSwitch={this.handlePageSwitch}
         >
@@ -41,13 +64,11 @@ class App extends Component {
         <div className="mx-3 mt-2">
           <Create
             hidden={this.state.currentPage != 0}
-            apiAccessID={this.state.apiAccessID}
-            apiSecretKey={this.state.apiSecretKey}
+            getAPIInstance={this.getAPIInstance}
           />
           <Manage
             hidden={this.state.currentPage != 1}
-            apiAccessID={this.state.apiAccessID}
-            apiSecretKey={this.state.apiSecretKey}
+            getAPIInstance={this.getAPIInstance}
           />
           <Account
             hidden={this.state.currentPage != 2}

@@ -2,20 +2,16 @@ import React, { Component } from "react";
 
 class SecureConfirmationModal extends Component {
   state = {
-    confirmationText: "",
-    invalidConfirmation: false
+    confirmationText: ""
   };
 
   handleConfirmButton = e => {
-    if (this.state.confirmationText.toLowerCase() == "yes") {
-      this.setState({ invalidConfirmation: false, confirmationText: "" });
-      this.props.onModalConfirm(this.props.id);
-    } else {
-      this.setState({ invalidConfirmation: true });
-    }
+    this.setState({ confirmationText: "" });
+    this.props.onModalConfirm(this.props.id);
   };
 
   handleCancel = e => {
+    this.setState({ confirmationText: "" });
     this.props.onModalCancel(this.props.id);
   };
 
@@ -67,11 +63,7 @@ class SecureConfirmationModal extends Component {
                 </button>
               </div>
               <div className="modal-body">
-                <div>{this.props.modalBody}</div>
-                <br />
-                <div className="align-text-bottom text-center">
-                  Type "<strong>yes</strong>" below to confirm
-                </div>
+                <div>{this.props.children}</div>
               </div>
               <div className="modal-footer">
                 <button
@@ -83,22 +75,21 @@ class SecureConfirmationModal extends Component {
                 </button>
                 <div className="input-group pull-right">
                   <input
-                    className={
-                      this.state.invalidConfirmation
-                        ? "form-control is-invalid"
-                        : "form-control"
-                    }
+                    className="form-control"
                     type="text"
-                    maxLength="3"
                     style={{ width: "48px" }}
                     value={this.state.confirmationText}
                     onChange={this.handleTextChange}
+                    placeholder="Type 'yes' to confirm"
                   />
                   <div className="input-group-append">
                     <button
                       type="button"
                       className="btn btn-warning"
                       onClick={this.handleConfirmButton}
+                      disabled={
+                        this.state.confirmationText.toLowerCase() != "yes"
+                      }
                     >
                       Confirm
                     </button>

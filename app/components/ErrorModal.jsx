@@ -44,7 +44,7 @@ class ErrorModal extends Component {
                   <span>&times;</span>
                 </button>
               </div>
-              <div className="modal-body">{this.props.modalBody}</div>
+              <div className="modal-body">{this.props.children}</div>
               <div className="modal-footer">
                 <button
                   type="button"

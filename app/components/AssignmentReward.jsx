@@ -2,7 +2,6 @@ import React, { Component } from "react";
 
 class AssignmentReward extends Component {
   state = {
-    inputFieldVal: "0.00",
     recommendReward: true,
     cachedNumOfQuestions: 0
   };
@@ -17,7 +16,6 @@ class AssignmentReward extends Component {
       );
       nextProps.onRewardChange(calculatedReward);
       return {
-        inputFieldVal: calculatedReward,
         cachedNumOfQuestions: nextProps.numOfQuestions
       };
     }
@@ -31,7 +29,7 @@ class AssignmentReward extends Component {
   };
 
   handleRewardChange = e => {
-    this.setState({ inputFieldVal: e.target.value });
+    this.props.onRewardChange(e.target.value);
   };
 
   handleRecommendCheckboxChange = e => {
@@ -70,7 +68,6 @@ class AssignmentReward extends Component {
     rewardFloat = Math.min(100, rewardFloat);
 
     rewardFloat = (Math.round(rewardFloat * 100) / 100).toFixed(2);
-    this.setState({ inputFieldVal: rewardFloat });
     this.props.onRewardChange(rewardFloat);
   };
 
@@ -85,7 +82,7 @@ class AssignmentReward extends Component {
           <input
             type="text"
             className="form-control"
-            value={this.state.inputFieldVal}
+            value={this.props.assignmentReward}
             onChange={this.handleRewardChange}
             onBlur={this.handleRewardBlur}
             readOnly={this.state.recommendReward}

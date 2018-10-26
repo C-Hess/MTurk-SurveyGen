@@ -9,7 +9,6 @@ import SecureConfirmationModal from "./SecureConfirmationModal";
 let window;
 
 class Create extends Component {
-  assignmentReward = "0.00";
   defaultAssignmentsPerHIT = 10;
 
   state = {
@@ -21,6 +20,7 @@ class Create extends Component {
     reverseAssignment: true,
     errorModalVisible: false,
     randomizeControlOrder: true,
+    assignmentReward: "0.00",
     assignmentsPerHIT: this.defaultAssignmentsPerHIT,
     errorModalBody: "",
     secureConfirmModalVisible: false,
@@ -28,7 +28,9 @@ class Create extends Component {
   };
 
   getTotalCost = () => {
-    return (this.state.assignmentsPerHIT * this.assignmentReward).toFixed(2);
+    return (this.state.assignmentsPerHIT * this.state.assignmentReward).toFixed(
+      2
+    );
   };
 
   getQuestionRows = () => {
@@ -111,15 +113,6 @@ class Create extends Component {
     if (this.state.hitDescriptionInputValue <= 0) {
       validationInfo.isValid = false;
       validationInfo.reason = "Survey must have a description";
-    }
-
-    if (
-      this.props.apiAccessID.length <= 0 ||
-      this.props.apiSecretKey.length <= 0
-    ) {
-      validationInfo.isValid = false;
-      validationInfo.reason =
-        "Account information not set. Cannot publish survey";
     }
 
     return validationInfo;
@@ -242,7 +235,7 @@ class Create extends Component {
   };
 
   handleRewardChange = assignmentReward => {
-    this.assignmentReward = assignmentReward;
+    this.setState({ assignmentReward });
   };
 
   handleAssignmentsPerHITChange = e => {
@@ -302,19 +295,13 @@ class Create extends Component {
       this.state.randomizeControlOrder
     );
 
-    const AWS = require("aws-sdk");
-    AWS.config.update({
-      credentials: new AWS.Credentials({
-        accessKeyId: this.props.apiAccessID,
-        secretAccessKey: this.props.apiSecretKey
-      }),
-      region: "us-east-1"
-    });
-    const endpoint = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
-    // Uncomment this line to use in production
-    // endpoint = 'https://mturk-requester.us-east-1.amazonaws.com';
-
-    const mturk = new AWS.MTurk({ endpoint: endpoint });
+    let mturk = null;
+    try {
+      mturk = this.props.getAPIInstance();
+    } catch (err) {
+      this.setState({ errorModalBody: err.message, errorModalVisible: true });
+      return;
+    }
 
     // Test your ability to connect to MTurk by checking your account balance
     mturk.getAccountBalance(function(err, data) {
@@ -337,7 +324,7 @@ class Create extends Component {
       MaxAssignments: this.state.assignmentsPerHIT,
       LifetimeInSeconds: 3600,
       AssignmentDurationInSeconds: 600,
-      Reward: this.assignmentReward,
+      Reward: this.state.assignmentReward,
       Question: generatedSurvey
     };
 
@@ -364,16 +351,18 @@ class Create extends Component {
       >
         <div className="card-body">
           <ErrorModal
-            modalBody={this.state.errorModalBody}
             isVisible={this.state.errorModalVisible}
             onModalClose={this.handleErrorModalClose}
-          />
+          >
+            {this.state.errorModalBody}
+          </ErrorModal>
           <SecureConfirmationModal
-            modalBody={this.state.secureConfirmModalBody}
             isVisible={this.state.secureConfirmModalVisible}
             onModalCancel={this.handlePublishCancel}
             onModalConfirm={this.handleConfirmPublish}
-          />
+          >
+            {this.state.secureConfirmModalBody}
+          </SecureConfirmationModal>
           <h3 className="card-title text-center">Create a New HIT</h3>
           <div className="mt-2">
             <h5 className="border-bottom my-3">Description</h5>
@@ -474,6 +463,7 @@ class Create extends Component {
             </div>
             <AssignmentReward
               numOfQuestions={this.state.questions.length}
+              assignmentReward={this.state.assignmentReward}
               onRewardChange={this.handleRewardChange}
             />
             <div className="form-group">

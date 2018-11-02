@@ -16,6 +16,13 @@ class SurveyGenerator {
     randomizeControlOrder,
     isPreview = false
   ) => {
+    const rawScriptString =
+      "for(var i = 0; i < " +
+      questions.length +
+      '; i ++) {for(var n = 0; n < document.forms["mturk_form"]["question"+1].length; n ++) {document.forms["mturk_form"]["question" + i][n].onclick = validate;}}function validate() {var valid = true;for(var i = 0; i < ' +
+      questions.length +
+      '; i ++) {if(document.forms["mturk_form"]["question" + i].value == "") {valid = false;}}if(valid) {var button = document.getElementById("submitButton");button.disabled = false;button.value = "Submit";}}';
+
     return ReactDomServer.renderToString(
       <html>
         <head>
@@ -66,9 +73,11 @@ class SurveyGenerator {
                 className="btn btn-primary mb-2"
                 type="submit"
                 id="submitButton"
-                value="Submit"
+                value="You must answer all questions"
+                disabled
               />
             </form>
+            <script dangerouslySetInnerHTML={{ __html: rawScriptString }} />
           </div>
           {!isPreview && (
             <script language="Javascript">turkSetAssignmentID();</script>

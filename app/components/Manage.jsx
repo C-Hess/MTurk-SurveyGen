@@ -1,33 +1,46 @@
 import React, { Component } from "react";
 import ErrorModal from "./ErrorModal";
 import { MTurk } from "aws-sdk";
-import { Chart, Axis, Series, Cursor, Tooltip, Bar } from "react-charts";
 import Utils from "../Utils";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Label,
+  ResponsiveContainer
+} from "recharts";
 
 class Manage extends Component {
   state = {
-    surveyData: {},
-    cachedSurveyResults: [],
+    surveyData: [],
+    cachedSurveyResults: {},
     selectedSurveyID: "",
     errorModalVisible: false,
     errorModalBody: ""
   };
 
   handleSurveyRowSelect = hitID => {
+    console.log("here");
     if (!(hitID in this.state.cachedSurveyResults)) {
       try {
         const mturk = this.props.getAPIInstance();
-        mturk.ListAssignmentsForHIT({ HITId: hitID }, (err, data) => {
+        mturk.listAssignmentsForHIT({ HITId: hitID }, (err, data) => {
           if (err) {
             // TODO add error box instead of modal for the survey data
             console.log("err" + err.message);
           } else {
-            let newSurveyData = JSON.parse(
-              JSON.stringify(this.state.surveyData)
+            console.log("here2");
+
+            let newCachedSurveyResults = JSON.parse(
+              JSON.stringify(this.state.cachedSurveyResults)
             );
-            newSurveyData[hitID] = data.Assignments;
+            newCachedSurveyResults[hitID] = data.Assignments;
             this.setState({
-              surveyData: newSurveyData
+              cachedSurveyResults: newCachedSurveyResults
             });
           }
         });
@@ -40,45 +53,104 @@ class Manage extends Component {
 
   getSelectedSurveyData = () => {
     if (this.state.selectedSurveyID.length > 0) {
-      selectedSurveyAssignments = this.state.cachedSurveyResults[
-        selectedSurveyID
+      const selectedSurveyAssignments = this.state.cachedSurveyResults[
+        this.state.selectedSurveyID
       ];
 
-      return (
-        <Chart
-          data={[
-            {
-              label: "Question 1",
-              data: [[15], [5]]
-            },
-            {
-              label: "Question 2",
-              data: [[5], [15]]
-            },
-            {
-              label: "Question 3",
-              data: [[3], [17]]
-            },
-            {
-              label: "Question 4",
-              data: [[7], [13]]
-            },
-            {
-              label: "Question 5",
-              data: [[4], [16]]
+      if (selectedSurveyAssignments != null) {
+        if (selectedSurveyAssignments.length == 0) {
+          return <div className="alert alert-warning">No responses yet</div>;
+        }
+
+        let xmlParser = new DOMParser();
+        let globalResults = [];
+
+        for (let i = 0; i < selectedSurveyAssignments.length; i++) {
+          const assignment = selectedSurveyAssignments[i];
+          const answerDoc = xmlParser.parseFromString(
+            assignment.Answer,
+            "text/xml"
+          );
+
+          const answers = answerDoc.getElementsByTagName("Answer");
+          for (let a = 0; a < answers.length; a++) {
+            const answerElement = answers[a];
+            const identifier = answerElement.getElementsByTagName(
+              "QuestionIdentifier"
+            )[0].firstChild.nodeValue;
+            const answer = answerElement.getElementsByTagName("FreeText")[0]
+              .firstChild.nodeValue;
+            const identRegMatch = identifier.match(/([a-zA-Z]+)(\d+)/);
+            const formattedIdentifier =
+              identRegMatch[1].charAt(0).toUpperCase() +
+              identRegMatch[1].substring(1) +
+              " " +
+              (parseInt(identRegMatch[2]) + 1);
+            let controlVal = 0;
+            let experimentalVal = 0;
+            if (answer == "c") {
+              controlVal = 1;
+            } else if (answer == "e") {
+              experimentalVal = 1;
+            } else {
+              return (
+                <div className="alert alert-danger">
+                  Unsupported answer returned from assignment: {answer}
+                </div>
+              );
             }
-          ]}
-        >
-          <Axis primary type="ordinal" position="left" />
-          <Axis type="linear" stacked position="bottom" />
-          <Series type={Bar} />
-          <Cursor primary />
-          <Cursor />
-          <Tooltip />
-        </Chart>
-      );
+
+            let newQuestionFound = true;
+            for (let n = 0; n < globalResults.length; n++) {
+              if (globalResults[n].name == formattedIdentifier) {
+                globalResults[n].Control += controlVal;
+                globalResults[n].Experimental += experimentalVal;
+                newQuestionFound = false;
+              }
+            }
+            if (newQuestionFound) {
+              globalResults.push({
+                name: formattedIdentifier,
+                Control: controlVal,
+                Experimental: experimentalVal
+              });
+            }
+          }
+        }
+
+        return (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={globalResults}
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false}>
+                <Label
+                  value="# of Responses"
+                  position="insideLeft"
+                  style={{ textAnchor: "middle" }}
+                  angle={-90}
+                />
+              </YAxis>
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="Control" stackId="a" fill="#2196F3" />
+              <Bar dataKey="Experimental" stackId="a" fill="#FF5722" />
+            </BarChart>
+          </ResponsiveContainer>
+        );
+      } else {
+        // Loading data
+        return (
+          <div className="text-center">
+            <i className="fas fa-sync fa-spin" />
+          </div>
+        );
+      }
     } else {
-      return null;
+      return <div className="alert alert-secondary">No survey selected</div>;
     }
   };
 
@@ -144,13 +216,13 @@ class Manage extends Component {
                   {completed > 0 && completed}
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right text-nowrap">
                 Completed: <strong>{completed}</strong>
               </div>
-              <div className="text-right">
+              <div className="text-right text-nowrap">
                 Pending: <strong>{pending}</strong>
               </div>
-              <div className="text-right">
+              <div className="text-right text-nowrap">
                 Remaining: <strong>{remaining}</strong>
               </div>
             </td>
@@ -177,11 +249,19 @@ class Manage extends Component {
             errorModalVisible: true
           });
         } else {
+          let selectedSurveyIDExists = false;
+          for (let i = 0; i < data.HITs.length; i++) {
+            if (data.HITs[i].HITId == this.state.selectedSurveyID) {
+              selectedSurveyIDExists = true;
+            }
+          }
           this.setState({
             surveyData: data.HITs,
-            selectedSurveyID: "",
             cachedSurveyResults: {}
           });
+          if (selectedSurveyIDExists) {
+            this.handleSurveyRowSelect(this.state.selectedSurveyID);
+          }
         }
       });
     } catch (err) {
@@ -205,7 +285,7 @@ class Manage extends Component {
 
   render() {
     return (
-      <div className={this.props.hidden ? "card d-none" : "card d-block"}>
+      <div className={this.props.hidden ? "card d-none" : "card d-block mb-2"}>
         <div className="card-body">
           <ErrorModal
             isVisible={this.state.errorModalVisible}
@@ -214,6 +294,7 @@ class Manage extends Component {
             {this.state.errorModalBody}
           </ErrorModal>
           <h3 className="card-title text-center">Manage Surveys</h3>
+          <h5 className="border-bottom my-3">All Surveys</h5>
           <button className="btn btn-primary" onClick={this.handleRefresh}>
             Refresh
             <i className="fas fa-sync-alt ml-3" />
@@ -235,7 +316,8 @@ class Manage extends Component {
             </thead>
             <tbody>{this.getSurveyTable()}</tbody>
           </table>
-          {getSelectedSurveyData()}
+          <h5 className="border-bottom my-3">Selected Survey</h5>
+          {this.getSelectedSurveyData()}
         </div>
       </div>
     );

@@ -24,124 +24,151 @@ class Manage extends Component {
   };
 
   handleSurveyRowSelect = hitID => {
-    console.log("here");
     if (!(hitID in this.state.cachedSurveyResults)) {
-      try {
-        const mturk = this.props.getAPIInstance();
-        mturk.listAssignmentsForHIT({ HITId: hitID }, (err, data) => {
-          if (err) {
-            // TODO add error box instead of modal for the survey data
-            console.log("err" + err.message);
-          } else {
-            console.log("here2");
+      const mturk = this.props.getAPIInstance();
+      mturk.listAssignmentsForHIT({ HITId: hitID }, (err, data) => {
+        if (err) {
+          this.setState({
+            errorModalVisible: true,
+            errorModalBody: (
+              <div>
+                <strong className="text-center">
+                  There was problem gathering survey information:
+                </strong>
+                <p>{err.message}</p>
+              </div>
+            )
+          });
+        } else {
+          let newCachedSurveyResults = JSON.parse(
+            JSON.stringify(this.state.cachedSurveyResults)
+          );
+          newCachedSurveyResults[hitID] = data.Assignments;
+          this.setState({
+            cachedSurveyResults: newCachedSurveyResults
+          });
 
-            let newCachedSurveyResults = JSON.parse(
-              JSON.stringify(this.state.cachedSurveyResults)
-            );
-            newCachedSurveyResults[hitID] = data.Assignments;
-            this.setState({
-              cachedSurveyResults: newCachedSurveyResults
-            });
+          let selectedHit;
+          for (let i = 0; i < this.state.surveyData.length; i++) {
+            if (this.state.surveyData[i].HITId == this.state.selectedSurveyID) {
+              selectedHit = this.state.surveyData[i];
+            }
           }
-        });
-      } catch (err) {
-        console.log("error: " + err.message);
-      }
+
+          for (let i = 0; i < this.state.surveyData.length; i++) {
+            let otherHit = this.state.surveyData[i];
+            if (
+              otherHit.HITId != selectedHit.HITId &&
+              otherHit.HITTypeId == selectedHit.HITTypeId
+            ) {
+              if (selectedHit.CreationTime < otherHit.CreationTime) {
+                mturk.listAssignmentsForHIT(
+                  { HITId: otherHit.HITId },
+                  (err, data) => {
+                    if (err) {
+                      this.setState({
+                        errorModalVisible: true,
+                        errorModalBody: (
+                          <div>
+                            <strong className="text-center">
+                              There was problem gathering survey information:
+                            </strong>
+                            <p>{err.message}</p>
+                          </div>
+                        )
+                      });
+                    } else {
+                      let newCachedSurveyResults = JSON.parse(
+                        JSON.stringify(this.state.cachedSurveyResults)
+                      );
+                      newCachedSurveyResults[otherHit.HITId] = data.Assignments;
+                      this.setState({
+                        cachedSurveyResults: newCachedSurveyResults
+                      });
+                    }
+                  }
+                );
+              } else {
+                console.error("Impossible condition reached.");
+              }
+            }
+          }
+        }
+      });
     }
     this.setState({ selectedSurveyID: hitID });
   };
 
-  getSelectedSurveyData = () => {
-    if (this.state.selectedSurveyID.length > 0) {
-      const selectedSurveyAssignments = this.state.cachedSurveyResults[
-        this.state.selectedSurveyID
-      ];
+  getResultsFromCachedAssignment(surveyID, reversedAssignment, globalResults) {
+    const surveyAssignments = this.state.cachedSurveyResults[surveyID];
+    if (surveyAssignments != null) {
+      let xmlParser = new DOMParser();
 
-      if (selectedSurveyAssignments != null) {
-        if (selectedSurveyAssignments.length == 0) {
-          return <div className="alert alert-warning">No responses yet</div>;
+      for (let i = 0; i < surveyAssignments.length; i++) {
+        const assignment = surveyAssignments[i];
+        const answerDoc = xmlParser.parseFromString(
+          assignment.Answer,
+          "text/xml"
+        );
+
+        const answers = answerDoc.getElementsByTagName("Answer");
+        if (reversedAssignment) {
+          answers.reverse();
         }
+        for (let a = 0; a < answers.length; a++) {
+          const answerElement = answers[a];
+          const identifier = answerElement.getElementsByTagName(
+            "QuestionIdentifier"
+          )[0].firstChild.nodeValue;
+          const answer = answerElement.getElementsByTagName("FreeText")[0]
+            .firstChild.nodeValue;
+          const identRegMatch = identifier.match(/([a-zA-Z]+)(\d+)/);
+          const formattedIdentifier =
+            identRegMatch[1].charAt(0).toUpperCase() +
+            identRegMatch[1].substring(1) +
+            " " +
+            (parseInt(identRegMatch[2]) + 1);
+          let controlVal = 0;
+          let experimentalVal = 0;
+          if (answer == "c") {
+            controlVal = 1;
+          } else if (answer == "e") {
+            experimentalVal = 1;
+          }
 
-        let xmlParser = new DOMParser();
-        let globalResults = [];
-
-        for (let i = 0; i < selectedSurveyAssignments.length; i++) {
-          const assignment = selectedSurveyAssignments[i];
-          const answerDoc = xmlParser.parseFromString(
-            assignment.Answer,
-            "text/xml"
-          );
-
-          const answers = answerDoc.getElementsByTagName("Answer");
-          for (let a = 0; a < answers.length; a++) {
-            const answerElement = answers[a];
-            const identifier = answerElement.getElementsByTagName(
-              "QuestionIdentifier"
-            )[0].firstChild.nodeValue;
-            const answer = answerElement.getElementsByTagName("FreeText")[0]
-              .firstChild.nodeValue;
-            const identRegMatch = identifier.match(/([a-zA-Z]+)(\d+)/);
-            const formattedIdentifier =
-              identRegMatch[1].charAt(0).toUpperCase() +
-              identRegMatch[1].substring(1) +
-              " " +
-              (parseInt(identRegMatch[2]) + 1);
-            let controlVal = 0;
-            let experimentalVal = 0;
-            if (answer == "c") {
-              controlVal = 1;
-            } else if (answer == "e") {
-              experimentalVal = 1;
-            } else {
-              return (
-                <div className="alert alert-danger">
-                  Unsupported answer returned from assignment: {answer}
-                </div>
-              );
-            }
-
-            let newQuestionFound = true;
-            for (let n = 0; n < globalResults.length; n++) {
-              if (globalResults[n].name == formattedIdentifier) {
-                globalResults[n].Control += controlVal;
-                globalResults[n].Experimental += experimentalVal;
-                newQuestionFound = false;
-              }
-            }
-            if (newQuestionFound) {
-              globalResults.push({
-                name: formattedIdentifier,
-                Control: controlVal,
-                Experimental: experimentalVal
-              });
+          let newQuestionFound = true;
+          for (let n = 0; n < globalResults.length; n++) {
+            if (globalResults[n].name == formattedIdentifier) {
+              globalResults[n].Control += controlVal;
+              globalResults[n].Experimental += experimentalVal;
+              newQuestionFound = false;
             }
           }
+          if (newQuestionFound) {
+            globalResults.push({
+              name: formattedIdentifier,
+              Control: controlVal,
+              Experimental: experimentalVal
+            });
+          }
         }
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
 
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={globalResults}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false}>
-                <Label
-                  value="# of Responses"
-                  position="insideLeft"
-                  style={{ textAnchor: "middle" }}
-                  angle={-90}
-                />
-              </YAxis>
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="Control" stackId="a" fill="#2196F3" />
-              <Bar dataKey="Experimental" stackId="a" fill="#FF5722" />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-      } else {
+  getSelectedSurveyData = () => {
+    if (this.state.selectedSurveyID.length > 0) {
+      let globalResults = [];
+      if (
+        !this.getResultsFromCachedAssignment(
+          this.state.selectedSurveyID,
+          false,
+          globalResults
+        )
+      ) {
         // Loading data
         return (
           <div className="text-center">
@@ -149,6 +176,63 @@ class Manage extends Component {
           </div>
         );
       }
+      let selectedHit;
+      for (let i = 0; i < this.state.surveyData.length; i++) {
+        if (this.state.surveyData[i].HITId == this.state.selectedSurveyID) {
+          selectedHit = this.state.surveyData[i];
+        }
+      }
+
+      for (let i = 0; i < this.state.surveyData.length; i++) {
+        let otherHit = this.state.surveyData[i];
+        if (
+          otherHit.HITId != selectedHit.HITId &&
+          otherHit.HITTypeId == selectedHit.HITTypeId
+        ) {
+          if (
+            !this.getResultsFromCachedAssignment(
+              otherHit.HITId,
+              true,
+              globalResults
+            )
+          ) {
+            // Loading data
+            return (
+              <div className="text-center">
+                <i className="fas fa-sync fa-spin" />
+              </div>
+            );
+          }
+        }
+      }
+
+      if (globalResults.length == 0) {
+        return <div className="alert alert-warning">No responses yet</div>;
+      }
+
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart
+            data={globalResults}
+            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis allowDecimals={false}>
+              <Label
+                value="# of Responses"
+                position="insideLeft"
+                style={{ textAnchor: "middle" }}
+                angle={-90}
+              />
+            </YAxis>
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="Control" stackId="a" fill="#2196F3" />
+            <Bar dataKey="Experimental" stackId="a" fill="#FF5722" />
+          </BarChart>
+        </ResponsiveContainer>
+      );
     } else {
       return <div className="alert alert-secondary">No survey selected</div>;
     }
@@ -164,70 +248,90 @@ class Manage extends Component {
         </tr>
       );
     } else {
-      return this.state.surveyData.map((hit, index) => {
-        const pending = hit.NumberOfAssignmentsPending;
-        const completed = hit.NumberOfAssignmentsCompleted;
-        const remaining = hit.NumberOfAssignmentsAvailable;
-        const total = hit.MaxAssignments;
+      return this.state.surveyData.map(hit => {
+        let pending = hit.NumberOfAssignmentsPending;
+        let completed = hit.NumberOfAssignmentsCompleted;
+        let remaining = hit.NumberOfAssignmentsAvailable;
+        let total = hit.MaxAssignments;
 
-        return (
-          <tr
-            key={hit.HITId}
-            className={
-              hit.HITId == this.state.selectedSurveyID ? "table-active" : ""
+        let addRow = true;
+
+        for (let i = 0; i < this.state.surveyData.length; i++) {
+          let otherHit = this.state.surveyData[i];
+          if (
+            otherHit.HITId != hit.HITId &&
+            otherHit.HITTypeId == hit.HITTypeId
+          ) {
+            if (hit.CreationTime < otherHit.CreationTime) {
+              pending += otherHit.NumberOfAssignmentsPending;
+              completed += otherHit.NumberOfAssignmentsCompleted;
+              remaining += otherHit.NumberOfAssignmentsAvailable;
+              total += otherHit.MaxAssignments;
+            } else {
+              addRow = false;
             }
-            onClick={() => this.handleSurveyRowSelect(hit.HITId)}
-          >
-            <td>{hit.Title}</td>
-            <td>{hit.Description}</td>
-            <td>
-              {hit.CreationTime.toLocaleString("en-US", {
-                month: "short",
-                year: "numeric",
-                day: "numeric"
-              }) +
-                " " +
-                hit.CreationTime.toLocaleTimeString()}
-            </td>
-            <td>
-              <div className="progress">
-                <div
-                  className="progress-bar bg-warning"
-                  style={{
-                    width: Utils.asPercentString(remaining / total)
-                  }}
-                >
-                  {remaining > 0 && remaining}
+          }
+        }
+        if (addRow) {
+          return (
+            <tr
+              key={hit.HITId}
+              className={
+                hit.HITId == this.state.selectedSurveyID ? "table-active" : ""
+              }
+              onClick={() => this.handleSurveyRowSelect(hit.HITId)}
+            >
+              <td>{hit.Title}</td>
+              <td>{hit.Description}</td>
+              <td>
+                {hit.CreationTime.toLocaleString("en-US", {
+                  month: "short",
+                  year: "numeric",
+                  day: "numeric"
+                }) +
+                  " " +
+                  hit.CreationTime.toLocaleTimeString()}
+              </td>
+              <td>
+                <div className="progress">
+                  <div
+                    className="progress-bar bg-warning"
+                    style={{
+                      width: Utils.asPercentString(remaining / total)
+                    }}
+                  >
+                    {remaining > 0 && remaining}
+                  </div>
+                  <div
+                    className="progress-bar"
+                    style={{
+                      width: Utils.asPercentString(pending / total)
+                    }}
+                  >
+                    {pending > 0 && pending}
+                  </div>
+                  <div
+                    className="progress-bar bg-success"
+                    style={{
+                      width: Utils.asPercentString(completed / total)
+                    }}
+                  >
+                    {completed > 0 && completed}
+                  </div>
                 </div>
-                <div
-                  className="progress-bar"
-                  style={{
-                    width: Utils.asPercentString(pending / total)
-                  }}
-                >
-                  {pending > 0 && pending}
+                <div className="text-right text-nowrap">
+                  Completed: <strong>{completed}</strong>
                 </div>
-                <div
-                  className="progress-bar bg-success"
-                  style={{
-                    width: Utils.asPercentString(completed / total)
-                  }}
-                >
-                  {completed > 0 && completed}
+                <div className="text-right text-nowrap">
+                  Pending: <strong>{pending}</strong>
                 </div>
-              </div>
-              <div className="text-right text-nowrap">
-                Completed: <strong>{completed}</strong>
-              </div>
-              <div className="text-right text-nowrap">
-                Pending: <strong>{pending}</strong>
-              </div>
-              <div className="text-right text-nowrap">
-                Remaining: <strong>{remaining}</strong>
-              </div>
-            </td>
-          </tr>
-        );
+                <div className="text-right text-nowrap">
+                  Remaining: <strong>{remaining}</strong>
+                </div>
+              </td>
+            </tr>
+          );
+        }
       });
     }
   };

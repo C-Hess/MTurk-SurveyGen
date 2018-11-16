@@ -3,7 +3,7 @@ import fs from "fs";
 class AppFileConfig {
   static configName = "surveygen-config.json";
 
-  static loadAppStateFromFile() {
+  static loadAppStateFromFile(defaultState) {
     try {
       const app = require("electron").remote.app;
       const configFile = app.getPath("userData") + "/" + this.configName;
@@ -13,11 +13,7 @@ class AppFileConfig {
     } catch (err) {
       console.log("Could not load old application data");
       console.log(err);
-      return {
-        currentPage: 0,
-        apiAccessID: "",
-        apiSecretKey: ""
-      };
+      return defaultState;
     }
   }
 

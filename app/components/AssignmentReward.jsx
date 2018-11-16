@@ -2,7 +2,7 @@ import React, { Component } from "react";
 
 class AssignmentReward extends Component {
   state = {
-    recommendReward: true,
+    recommendReward: false,
     cachedNumOfQuestions: 0
   };
 
@@ -23,9 +23,7 @@ class AssignmentReward extends Component {
   }
 
   static calculateAssignmentReward = numOfQuestions => {
-    return (
-      Math.round(numOfQuestions * 1.5 * 0.108333333 * 1.25 * 100) / 100
-    ).toFixed(2);
+    return (Math.round(numOfQuestions * 16.25) / 100).toFixed(2);
   };
 
   handleRewardChange = e => {

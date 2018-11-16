@@ -1,10 +1,12 @@
 import React, { Component } from "react";
-import ErrorModal from "./ErrorModal";
 import AddTwoURLs from "./AddTwoURLs";
 import SurveyGenerator from "../SurveyGenerator";
 import AddSingleURL from "./AddSingleURL";
 import AssignmentReward from "./AssignmentReward";
 import SecureConfirmationModal from "./SecureConfirmationModal";
+import ErrorModal from "./ErrorModal";
+import SuccessModal from "./SuccessModal";
+import AppFileConfig from "../AppFileConfig";
 
 let window;
 
@@ -17,20 +19,24 @@ class Create extends Component {
     hitTitleInputValue: "",
     hitDescriptionInputValue: "",
     questionDescriptionInputValue: "",
-    reverseAssignment: true,
+    reverseAssignment: false,
     errorModalVisible: false,
     randomizeControlOrder: true,
     assignmentReward: "0.00",
     assignmentsPerHIT: this.defaultAssignmentsPerHIT,
     errorModalBody: "",
     secureConfirmModalVisible: false,
-    secureConfirmModalBody: ""
+    secureConfirmModalBody: "",
+    successModalVisible: false,
+    successModalBody: ""
   };
 
   getTotalCost = () => {
-    return (this.state.assignmentsPerHIT * this.state.assignmentReward).toFixed(
-      2
-    );
+    return (
+      this.state.assignmentsPerHIT *
+      this.state.assignmentReward *
+      (this.state.reverseAssignment ? 2 : 1)
+    ).toFixed(2);
   };
 
   getQuestionRows = () => {
@@ -92,30 +98,6 @@ class Create extends Component {
         );
       });
     }
-  };
-
-  validateAll = () => {
-    const validationInfo = this.validatePreview();
-    if (!validationInfo.isValid) {
-      return validationInfo;
-    }
-
-    if (this.state.assignmentReward <= 0) {
-      validationInfo.isValid = false;
-      validationInfo.reason = "Survey must have an assignment reward > 0";
-    }
-
-    if (this.state.hitTitleInputValue <= 0) {
-      validationInfo.isValid = false;
-      validationInfo.reason = "Survey must have a title";
-    }
-
-    if (this.state.hitDescriptionInputValue <= 0) {
-      validationInfo.isValid = false;
-      validationInfo.reason = "Survey must have a description";
-    }
-
-    return validationInfo;
   };
 
   validatePreview = () => {
@@ -190,20 +172,73 @@ class Create extends Component {
   };
 
   handlePublishButton = e => {
-    const validationInfo = this.validateAll();
-    if (validationInfo.isValid) {
-      this.setState({
-        secureConfirmModalBody:
-          "Are you sure you want to publish this survey? It will cost $" +
-          this.getTotalCost(),
-        secureConfirmModalVisible: true
-      });
-    } else {
-      this.setState({
-        errorModalVisible: true,
-        errorModalBody: validationInfo.reason
-      });
+    const validationInfo = this.validatePreview();
+    if (!validationInfo.isValid) {
+      return validationInfo;
     }
+
+    if (this.state.assignmentReward <= 0) {
+      validationInfo.isValid = false;
+      validationInfo.reason = "Survey must have an assignment reward > 0";
+    }
+
+    if (this.state.hitTitleInputValue <= 0) {
+      validationInfo.isValid = false;
+      validationInfo.reason = "Survey must have a title";
+    }
+
+    if (this.state.hitDescriptionInputValue <= 0) {
+      validationInfo.isValid = false;
+      validationInfo.reason = "Survey must have a description";
+    }
+
+    let mturk = null;
+    try {
+      mturk = this.props.getAPIInstance();
+    } catch (err) {
+      this.setState({ errorModalBody: err.message, errorModalVisible: true });
+      return;
+    }
+
+    mturk.getAccountBalance((err, data) => {
+      if (err) {
+        this.setState({
+          errorModalBody: (
+            <div>
+              There was an error getting the account balance: {err.message}
+            </div>
+          ),
+          errorModalVisible: true
+        });
+        return;
+      } else {
+        if (
+          parseFloat("" + data.AvailableBalance) <
+          parseFloat("" + this.getTotalCost)
+        ) {
+          validationInfo.isValid = false;
+          validationInfo.reason =
+            "Insufficient account balance (" + data.AvailableBalance + ")";
+        }
+
+        if (validationInfo.isValid) {
+          this.setState({
+            secureConfirmModalBody: (
+              <div>
+                Are you sure you want to publish this survey? It will cost $
+                {this.getTotalCost()}
+              </div>
+            ),
+            secureConfirmModalVisible: true
+          });
+        } else {
+          this.setState({
+            errorModalVisible: true,
+            errorModalBody: validationInfo.reason
+          });
+        }
+      }
+    });
   };
 
   handleDeleteQuestion = e => {
@@ -230,8 +265,12 @@ class Create extends Component {
     this.setState({ reverseAssignment: e.target.checked });
   };
 
+  handleSuccessModalClose = e => {
+    this.setState({ successModalVisible: false });
+  };
+
   handleErrorModalClose = e => {
-    this.setState({ errorModalVisible: false });
+    this.setState({ errorModalVisible: false, errorModalBody: "" });
   };
 
   handleRewardChange = assignmentReward => {
@@ -270,7 +309,7 @@ class Create extends Component {
       assignPerHITInt = this.defaultAssignmentsPerHIT;
     }
 
-    assignPerHITInt = Math.max(0, Math.min(1000, rewardFloat));
+    assignPerHITInt = Math.max(0, Math.min(1000, assignPerHITInt));
 
     this.setState({ assignmentsPerHIT: assignPerHITInt });
   };
@@ -289,11 +328,6 @@ class Create extends Component {
     });
 
     const surveyGen = new SurveyGenerator();
-    const generatedSurvey = surveyGen.getDocument(
-      this.state.questions,
-      this.state.questionDescriptionInputValue,
-      this.state.randomizeControlOrder
-    );
 
     let mturk = null;
     try {
@@ -303,22 +337,13 @@ class Create extends Component {
       return;
     }
 
-    // Test your ability to connect to MTurk by checking your account balance
-    mturk.getAccountBalance(function(err, data) {
-      if (err) {
-        console.log(err.message);
-      } else {
-        // Sandbox balance check will always return $10,000
-        console.log("I have " + data.AvailableBalance + " in my account.");
-      }
-    });
+    const generatedSurvey = surveyGen.getDocument(
+      this.state.questions,
+      this.state.questionDescriptionInputValue,
+      this.state.randomizeControlOrder
+    );
 
-    /*
-      Publish a new HIT to the Sandbox marketplace start by reading in the HTML markup specifying your task from a seperate file (my_question.xml). To learn more about the HTML question type, see here: http://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_HTMLQuestionArticle.html
-      */
-
-    // Construct the HIT object below
-    const myHIT = {
+    const surveyHIT = {
       Title: this.state.hitTitleInputValue,
       Description: this.state.hitDescriptionInputValue,
       MaxAssignments: this.state.assignmentsPerHIT,
@@ -328,18 +353,67 @@ class Create extends Component {
       Question: generatedSurvey
     };
 
-    mturk.createHIT(myHIT, function(err, data) {
+    mturk.createHIT(surveyHIT, (err, data) => {
       if (err) {
-        console.log(err.message);
+        this.setState({
+          errorModalVisible: true,
+          errorModalBody: (
+            <div>
+              <strong className="text-center">
+                There was problem submitting the survey:
+              </strong>
+              <p>{err.message}</p>
+            </div>
+          )
+        });
       } else {
-        console.log(data);
-        // Save the HITId printed by data.HIT.HITId and use it in the RetrieveAndApproveResults.js code sample
-        console.log(
-          "HIT has been successfully published here: https://workersandbox.mturk.com/mturk/preview?groupId=" +
-            data.HIT.HITTypeId +
-            " with this HITId: " +
-            data.HIT.HITId
-        );
+        if (this.state.reverseAssignment) {
+          let hitQuestions = JSON.parse(JSON.stringify(this.state.questions));
+          hitQuestions.reverse();
+          const generatedSurvey = surveyGen.getDocument(
+            this.state.questions,
+            this.state.questionDescriptionInputValue,
+            this.state.randomizeControlOrder
+          );
+
+          const surveyHIT = {
+            Title: this.state.hitTitleInputValue,
+            Description: this.state.hitDescriptionInputValue,
+            MaxAssignments: this.state.assignmentsPerHIT,
+            LifetimeInSeconds: 3600,
+            AssignmentDurationInSeconds: 600,
+            Reward: this.state.assignmentReward,
+            Question: generatedSurvey
+          };
+
+          setTimeout(() => {
+            mturk.createHIT(surveyHIT, (err, data) => {
+              if (err) {
+                this.setState({
+                  errorModalVisible: true,
+                  errorModalBody: (
+                    <div>
+                      <strong className="text-center">
+                        There was problem submitting the survey:
+                      </strong>
+                      <p>{err.message}</p>
+                    </div>
+                  )
+                });
+              } else {
+                this.setState({
+                  successModalVisible: true,
+                  successModalBody: "Survey has been successfully published"
+                });
+              }
+            });
+          }, 1000);
+        } else {
+          this.setState({
+            successModalVisible: true,
+            successModalBody: "Survey has been successfully published"
+          });
+        }
       }
     });
   };
@@ -363,6 +437,12 @@ class Create extends Component {
           >
             {this.state.secureConfirmModalBody}
           </SecureConfirmationModal>
+          <SuccessModal
+            isVisible={this.state.successModalVisible}
+            onModalClose={this.handleSuccessModalClose}
+          >
+            {this.state.successModalBody}
+          </SuccessModal>
           <h3 className="card-title text-center">Create a New HIT</h3>
           <div className="mt-2">
             <h5 className="border-bottom my-3">Description</h5>
@@ -443,7 +523,8 @@ class Create extends Component {
               </label>
               <small className="form-text text-muted">
                 This will create another HIT with all of the questions in
-                reverse order to remove some bias
+                reverse order to remove some bias. It will double the cost of
+                the survey.
               </small>
             </div>
             <div className="form-group form-check">

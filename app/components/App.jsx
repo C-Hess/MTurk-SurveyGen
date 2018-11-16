@@ -9,7 +9,11 @@ import { error } from "util";
 class App extends Component {
   pages = [{ name: "Create" }, { name: "Manage" }, { name: "Account" }];
 
-  state = AppFileConfig.loadAppStateFromFile();
+  state = AppFileConfig.loadAppStateFromFile({
+    currentPage: 0,
+    apiAccessID: "",
+    apiSecretKey: ""
+  });
 
   handlePageSwitch = currentPage => {
     if (currentPage != this.state.currentPage) {

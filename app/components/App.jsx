@@ -6,21 +6,37 @@ import NavBar from "./NavBar";
 import AppFileConfig from "../AppFileConfig";
 import { error } from "util";
 
+/**
+ * Main component of the Survey Generator app. Contains the navigation bar and the three main
+ * components of the program. It also handles providing subcomponents access to the MTurk API.
+ */
 class App extends Component {
+  /** Static list that contains the name of each page for the navigation bar */
   pages = [{ name: "Create" }, { name: "Manage" }, { name: "Account" }];
 
+  /** The app state is saved and loaded from a JSON file for persistance. */
   state = AppFileConfig.loadAppStateFromFile({
+    /** The current page the user has chosen to display. */
     currentPage: 0,
+    /** The Amazon Web Service API Access ID for accessing the MTurk API */
     apiAccessID: "",
+    /** The Amazon Web Service API Secret Key for accessing the MTurk API */
     apiSecretKey: ""
   });
 
+  /**
+   * Event handler for when the user chooses to display a different page from the navigation bar.
+   */
   handlePageSwitch = currentPage => {
     if (currentPage != this.state.currentPage) {
       this.setState({ currentPage });
     }
   };
 
+  /**
+   * Event handler for when the user changes either the AWS API Access ID or the AWS API Secret Key
+   * in the Account component.
+   */
   handleAccountChange = (apiAccessID, apiSecretKey) => {
     if (apiAccessID != null) {
       this.setState({ apiAccessID });
@@ -31,6 +47,12 @@ class App extends Component {
     }
   };
 
+  /**
+   * Returns the instance of a new MTurk API object that is created from the API access ID and key.
+   * This function is given to subcomponents for their use.
+   *
+   * @returns {AWS.MTurk} A Mechanical Turk API instance.
+   */
   getAPIInstance = () => {
     if (
       this.state.apiAccessID.length <= 0 ||
@@ -51,10 +73,14 @@ class App extends Component {
     return new AWS.MTurk({ endpoint: endpoint });
   };
 
+  /** React.Component function that will be called every time the App component's state is changed  */
   componentDidUpdate() {
     AppFileConfig.saveAppStateToFile(this.state);
   }
 
+  /**
+   * Render function for React.Component. Returns the HTML content for the main App component.
+   */
   render() {
     return (
       <React.Fragment>

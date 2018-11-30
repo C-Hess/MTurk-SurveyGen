@@ -1,15 +1,27 @@
 import React, { Component } from "react";
 import Utils from "../Utils";
 
+/**
+ * React component that defines the "Add two URLs" functionality to the Create page.
+ */
 class AddTwoURLs extends Component {
   state = {
+    /** User inputted string that is the URL of the control video/image */
     controlInputValue: "",
+    /** User inputted string that is the URL of the experimental video/image */
     experimentalInputValue: "",
+    /** Boolean used to show the user if the control URL field is invalid */
     isControlURLInvalid: false,
+    /** Boolean used to show the user if the experimental URL field is invalid */
     isExperimentalURLInvalid: false,
+    /** String that tells the user why the inputted URL fields are invalid */
     invalidReason: ""
   };
 
+  /**
+   * Event handler for when the "Add" two URL button is clicked. Will divert the functionality of what to do
+   * to the parent component.
+   */
   handleAddURLS = e => {
     const controlVal = this.state.controlInputValue;
     const experimentalVal = this.state.experimentalInputValue;
@@ -49,14 +61,21 @@ class AddTwoURLs extends Component {
     });
   };
 
+  /**
+   * Event handler for when the experimental URL text field is changed
+   */
   handleExperimentalInputChange = e => {
     this.setState({ experimentalInputValue: e.target.value });
   };
 
+  /** Event handler for when the control URL text field is changed */
   handleControlInputChange = e => {
     this.setState({ controlInputValue: e.target.value });
   };
 
+  /**
+   * Render function for React.Component. Provides the HTML for the AddTwoURLs component.
+   */
   render() {
     return (
       <div className="input-group">

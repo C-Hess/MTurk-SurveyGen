@@ -1,6 +1,14 @@
 import React, { Component } from "react";
 
+/**
+ * This component defines a success modal that can be toggled whether or not is is displayed. The modal's
+ * contents are given by this component's children. When the modal is closed, it will call
+ * the parent component's function (this.props.onModalClose)
+ */
 class SuccessModal extends Component {
+  /**
+   * Render function for React.Component. Will return the HTML for the success modal.
+   */
   render() {
     return (
       <React.Fragment>

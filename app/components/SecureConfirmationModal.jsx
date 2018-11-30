@@ -1,24 +1,48 @@
 import React, { Component } from "react";
 
+/**
+ * This component defines a secure confirmation modal. It is useful to prevent the accidential
+ * authorization of a given action. The modal requires that text be entered to an input field to confirm
+ * the action.
+ */
 class SecureConfirmationModal extends Component {
   state = {
+    /**
+     * The user inputted text field to confirm that the user authorizes a given action.
+     */
     confirmationText: ""
   };
 
+  /**
+   * Event handler for when the confirm button is clicked. Will pass confirmation functionality to
+   * parent component (this.props.onModalConfirm). This will only be called if the confirm button is
+   * enabled, which only happens when the user has succesfully typed "yes" to confirm the action.
+   */
   handleConfirmButton = e => {
     this.setState({ confirmationText: "" });
     this.props.onModalConfirm(this.props.id);
   };
 
+  /**
+   * Event handler for when either one of the two cancel buttons are clicked. Will pass "cancellation"
+   * functionality to the parent component (this.props.onModalClose)
+   */
   handleCancel = e => {
     this.setState({ confirmationText: "" });
     this.props.onModalCancel(this.props.id);
   };
 
+  /**
+   * Event handler for when the user changes the confirmation input text field
+   */
   handleTextChange = e => {
     this.setState({ confirmationText: e.target.value });
   };
 
+  /**
+   * Render function used by React.Component. It will return all of the elements used to display the
+   * SecureConfirmationModal
+   */
   render() {
     return (
       <React.Fragment>

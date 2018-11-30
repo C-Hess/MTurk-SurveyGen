@@ -1,6 +1,13 @@
 import React, { Component } from "react";
 
+/**
+ * This react component represents the "Account" page. It contains fields for
+ * inputting the required AWS API keys for the survey generator to work.
+ */
 class Account extends Component {
+  /**
+   * Render function for React.Component. Displays the "Account" page.
+   */
   render() {
     return (
       <React.Fragment>

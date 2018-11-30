@@ -1,6 +1,13 @@
 import React, { Component } from "react";
 
+/**
+ * This component handles the bootstrap navigation bar.
+ */
 class NavBar extends Component {
+  /**
+   * This function returns nav-item elements for every navigation page given from this
+   * components properties (this.props.pages)
+   */
   getNavItems = () => {
     return this.props.pages.map((page, index) => (
       <a
@@ -17,6 +24,10 @@ class NavBar extends Component {
     ));
   };
 
+  /**
+   * Render function for React.Component. Returns the HTML elements that make up the navigation bar of the
+   * survey generator application.
+   */
   render() {
     return (
       <nav className="navbar navbar-expand-sm navbar-dark bg-primary">

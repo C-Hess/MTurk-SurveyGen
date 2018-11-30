@@ -34,6 +34,15 @@ class Account extends Component {
                 onChange={e => this.props.onAccountChange(null, e.target.value)}
               />
             </div>
+            <div className="form-group form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                checked={this.props.useSandbox}
+                onChange={this.props.onUseSandboxChange}
+              />
+              <label class="form-check-label">Use sandbox</label>
+            </div>
           </div>
         </div>
       </React.Fragment>

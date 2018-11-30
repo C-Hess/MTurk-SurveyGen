@@ -21,7 +21,9 @@ class App extends Component {
     /** The Amazon Web Service API Access ID for accessing the MTurk API */
     apiAccessID: "",
     /** The Amazon Web Service API Secret Key for accessing the MTurk API */
-    apiSecretKey: ""
+    apiSecretKey: "",
+    /** Boolean that tells which API endpoint to use (either sandbox or production) */
+    useSandbox: false
   });
 
   /**
@@ -47,6 +49,10 @@ class App extends Component {
     }
   };
 
+  handleUseSandboxChange = e => {
+    this.setState({ useSandbox: e.target.checked });
+  };
+
   /**
    * Returns the instance of a new MTurk API object that is created from the API access ID and key.
    * This function is given to subcomponents for their use.
@@ -68,7 +74,13 @@ class App extends Component {
       }),
       region: "us-east-1"
     });
-    const endpoint = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
+
+    let endpoint = "";
+    if (this.state.useSandbox) {
+      endpoint = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
+    } else {
+      endpoint = "https://mturk-requester.us-east-1.amazonaws.com";
+    }
 
     return new AWS.MTurk({ endpoint: endpoint });
   };
@@ -104,9 +116,11 @@ class App extends Component {
             hidden={this.state.currentPage != 2}
             apiAccessID={this.state.apiAccessID}
             apiSecretKey={this.state.apiSecretKey}
+            useSandbox={this.state.useSandbox}
             onAccountChange={(newAPIAccessID, newAPISecretKey) =>
               this.handleAccountChange(newAPIAccessID, newAPISecretKey)
             }
+            onUseSandboxChange={e => this.handleUseSandboxChange(e)}
           />
         </div>
       </React.Fragment>

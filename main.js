@@ -7,7 +7,12 @@ let mainWindow;
 
 function createWindow() {
   // Create the browser window.
-  mainWindow = new BrowserWindow({ width: 800, height: 600 });
+  mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    minWidth: 650,
+    minHeight: 500
+  });
   mainWindow.setTitle("Mechanical Turk Survey Generator");
   // and load the index.html of the app.
   mainWindow.loadFile("build/index.html");

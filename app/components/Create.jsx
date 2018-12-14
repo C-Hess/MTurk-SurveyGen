@@ -6,6 +6,7 @@ import AssignmentReward from "./AssignmentReward";
 import SecureConfirmationModal from "./SecureConfirmationModal";
 import ErrorModal from "./ErrorModal";
 import SuccessModal from "./SuccessModal";
+import DurationPicker from "./DurationPicker";
 import AppFileConfig from "../AppFileConfig";
 
 let window;
@@ -16,6 +17,8 @@ let window;
 class Create extends Component {
   /** Default value of assinments per HIT to reset to if the user input is invalid. */
   defaultAssignmentsPerHIT = 10;
+
+  surveyLifetimeDuration = 28800;
 
   state = {
     /** List containing every question added to survey creation table. */
@@ -54,7 +57,8 @@ class Create extends Component {
     /** Bool decides whether the success modal component should be visible or not. */
     successModalVisible: false,
     /** String/react content that is to be displayed in the success modal component. */
-    successModalBody: ""
+    successModalBody: "",
+    surveyDuration: 300
   };
 
   /**
@@ -249,6 +253,12 @@ class Create extends Component {
       validationInfo.reason = "Survey must have a description";
     }
 
+    if (this.surveyLifetimeDuration < this.state.surveyDuration * 2 + 60) {
+      validationInfo.isValid = false;
+      validationInfo.reason =
+        "The survey lifetime must be at least one minute longer than double the survey duration.";
+    }
+
     if (!validationInfo.isValid) {
       this.setState({
         errorModalBody: validationInfo.reason,
@@ -412,6 +422,14 @@ class Create extends Component {
     this.setState({ randomizeControlOrder: e.target.checked });
   };
 
+  handleSurveyDurationChange = newDuration => {
+    this.setState({ surveyDuration: newDuration });
+  };
+
+  handleSurveyLifetimeChange = newDuration => {
+    this.surveyLifetimeDuration = newDuration;
+  };
+
   /**
    * Event handler for when the secure confirmation modal is canceled
    */
@@ -456,8 +474,8 @@ class Create extends Component {
       Title: this.state.hitTitleInputValue,
       Description: this.state.hitDescriptionInputValue,
       MaxAssignments: this.state.assignmentsPerHIT,
-      LifetimeInSeconds: 3600 * 4,
-      AssignmentDurationInSeconds: 1200,
+      LifetimeInSeconds: this.surveyLifetimeDuration,
+      AssignmentDurationInSeconds: this.state.surveyDuration * 2,
       AutoApprovalDelayInSeconds: 30,
       Reward: this.state.assignmentReward,
       Question: generatedSurvey
@@ -490,8 +508,8 @@ class Create extends Component {
             Title: this.state.hitTitleInputValue,
             Description: this.state.hitDescriptionInputValue,
             MaxAssignments: this.state.assignmentsPerHIT,
-            LifetimeInSeconds: 3600 * 4,
-            AssignmentDurationInSeconds: 1200,
+            LifetimeInSeconds: this.surveyLifetimeDuration,
+            AssignmentDurationInSeconds: this.state.surveyDuration * 2,
             AutoApprovalDelayInSeconds: 30,
             Reward: this.state.assignmentReward,
             Question: generatedSurvey
@@ -624,7 +642,7 @@ class Create extends Component {
             >
               Delete
             </button>
-            <h5 className="border-bottom my-3">HIT Configuration</h5>
+            <h5 className="border-bottom my-3">Survey Configuration</h5>
             <div className="form-group form-check">
               <input
                 type="checkbox"
@@ -656,8 +674,34 @@ class Create extends Component {
                 or right. Has no effect on questions with one URL.
               </small>
             </div>
+            <div className="form-group">
+              <label>Estimated survey duration</label>
+              <DurationPicker
+                initialDurationInSeconds={this.state.surveyDuration}
+                minDurationInSeconds={30}
+                maxDurationInSeconds={Math.floor(86399)}
+                onDurationChange={this.handleSurveyDurationChange}
+              />
+              <small className="form-text text-muted">
+                The estimated time the assignment should take. The time is
+                doubled to produce the maximum time until a survey is considered
+                abandoned and is able to be taken by another worker.
+              </small>
+            </div>
+            <div className="form-group">
+              <label>Survey lifetime</label>
+              <DurationPicker
+                initialDurationInSeconds={this.surveyLifetimeDuration}
+                minDurationInSeconds={70}
+                onDurationChange={this.handleSurveyLifetimeChange}
+              />
+              <small className="form-text text-muted">
+                The time in which the survey has reached its deadline and no
+                more workers can be assigned to it.
+              </small>
+            </div>
             <AssignmentReward
-              numOfQuestions={this.state.questions.length}
+              surveyDuration={this.state.surveyDuration}
               assignmentReward={this.state.assignmentReward}
               onRewardChange={this.handleRewardChange}
             />

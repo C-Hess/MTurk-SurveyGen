@@ -45,7 +45,7 @@ class SurveyGenerator {
     const rawScriptString =
       "for(var i = 0; i < " +
       questions.length +
-      '; i ++) {for(var n = 0; n < document.forms["mturk_form"]["question"+1].length; n ++) {document.forms["mturk_form"]["question" + i][n].onclick = validate;}}function validate() {var valid = true;for(var i = 0; i < ' +
+      '; i ++) {for(var n = 0; n < document.forms["mturk_form"]["question"+i].length; n ++) {document.forms["mturk_form"]["question" + i][n].onclick = validate;}}function validate() {var valid = true;for(var i = 0; i < ' +
       questions.length +
       '; i ++) {if(document.forms["mturk_form"]["question" + i].value == "") {valid = false;}}if(valid) {var button = document.getElementById("submitButton");button.disabled = false;button.value = "Submit";}}';
 

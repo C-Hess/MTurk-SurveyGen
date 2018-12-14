@@ -36,12 +36,12 @@ class Account extends Component {
             </div>
             <div className="form-group form-check">
               <input
-                class="form-check-input"
+                className="form-check-input"
                 type="checkbox"
                 checked={this.props.useSandbox}
                 onChange={this.props.onUseSandboxChange}
               />
-              <label class="form-check-label">Use sandbox</label>
+              <label className="form-check-label">Use sandbox</label>
             </div>
           </div>
         </div>

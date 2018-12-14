@@ -30,7 +30,13 @@ class NavBar extends Component {
    */
   render() {
     return (
-      <nav className="navbar navbar-expand-sm navbar-dark bg-primary">
+      <nav
+        className={
+          this.props.isSandbox
+            ? "navbar navbar-expand-sm navbar-dark bg-primary"
+            : "navbar navbar-expand-sm navbar-dark bg-danger"
+        }
+      >
         {this.props.children}
         <button
           className="navbar-toggler"

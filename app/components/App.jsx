@@ -99,6 +99,7 @@ class App extends Component {
         <NavBar
           pages={this.pages}
           currentPage={this.state.currentPage}
+          isSandbox={this.state.useSandbox}
           onPageSwitch={this.handlePageSwitch}
         >
           <span className="navbar-brand mb-0 h1">M-Turk Survey Manager</span>

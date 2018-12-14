@@ -13,6 +13,7 @@ import {
   Label,
   ResponsiveContainer
 } from "recharts";
+import SecureConfirmationModal from "./SecureConfirmationModal";
 
 /**
  * This major component handles the management aspect of the SurveyGenerator. It can list infromation about
@@ -42,7 +43,9 @@ class Manage extends Component {
     /** The content of the error modal. This is changed to some sort of error message when an error
      * occurs
      */
-    errorModalBody: ""
+    errorModalBody: "",
+    secureConfirmModalVisible: false,
+    secureConfirmModalBody: ""
   };
 
   /**
@@ -141,6 +144,8 @@ class Manage extends Component {
    * @param {*} globalResults A list of objects that currently contains, or will eventually contain,
    * every question of the survey. The class of the objects in this list is the same that is used for
    * Recharts for visualizing the results in a bar chart.
+   * @returns {boolean} true if the results have been cached, false if the results have not been cached
+   * and are still loading.
    */
   getResultsFromCachedAssignment = (
     surveyID,
@@ -249,18 +254,30 @@ class Manage extends Component {
    * Returns the HTML elements of the currently selected survey. It will typically contain a bar chart.
    * If no surveys are selected from the survey table or if the survey does not yet have results, then
    * it will return a bootstrap alert box saying so. If the results of the currently selected hit are still
-   * being loaded, then it will return a font-awesome loading spinner.
+   * being loaded, then it will return a font-awesome loading spinner. If there was an error reading the
+   * selected assignment, then it will return an error notification.
    */
   getSelectedSurveyData = () => {
     if (this.state.selectedSurveyID.length > 0) {
       let globalResults = [];
-      if (
-        !this.getResultsFromCachedAssignment(
+      let isSurveyDataDoneLoading = true;
+
+      try {
+        isSurveyDataDoneLoading = this.getResultsFromCachedAssignment(
           this.state.selectedSurveyID,
           false,
           globalResults
-        )
-      ) {
+        );
+      } catch (err) {
+        return (
+          <div className="alert alert-danger">
+            <strong>Error!</strong> It looks like the selected survey is not in
+            a parsable format for this application.
+          </div>
+        );
+      }
+
+      if (!isSurveyDataDoneLoading) {
         // Loading data
         return (
           <div className="text-center">
@@ -484,11 +501,11 @@ class Manage extends Component {
 
   /**
    * Event handler for when the user has selected a survey from the survey table and then clicked the
-   * delete button. It will call mturk.deleteHIT for the currently selected survey hit ID as well has
-   * any other survey with the same HITTypeId as the on selected (this is to ensure that both HITs are deleted
-   * for reversed assignment surveys).
+   * delete button and confirmed it. It will call mturk.deleteHIT for the currently selected survey hit
+   * ID as well hasany other survey with the same HITTypeId as the on selected (this is to ensure that
+   * both HITs are deleted for reversed assignment surveys).
    */
-  handleDeleteSurvey = () => {
+  handleConfirmDelete = () => {
     try {
       const mturk = this.props.getAPIInstance();
       mturk.deleteHIT({ HITId: this.state.selectedSurveyID }, err => {
@@ -506,38 +523,33 @@ class Manage extends Component {
           });
         } else {
           let newSurveyData = JSON.parse(JSON.stringify(this.state.surveyData));
-
+          let hitTypeId;
           //Delete the second survey of a reversed survey if it exists
           for (let i = 0; i < newSurveyData.length; i++) {
             if (newSurveyData[i].HITId == this.state.selectedSurveyID) {
-              let hitTypeId = newSurveyData[i].HITTypeId;
+              hitTypeId = newSurveyData[i].HITTypeId;
               for (let n = 0; n < newSurveyData.length; n++) {
-                if (newSurveyData[i].HITTypeId == hitTypeId) {
-                  mturk.deleteHIT(
-                    { HITId: this.state.selectedSurveyID },
-                    err => {
-                      if (err) {
-                        this.setState({
-                          errorModalBody: (
-                            <div>
-                              <strong className="text-center">
-                                There was problem deleting the 2nd hit of a
-                                reversed survey (Recommend refreshing the survey
-                                list):
-                              </strong>
-                              <p>{err.message}</p>
-                            </div>
-                          ),
-                          errorModalVisible: true
-                        });
-                      } else {
-                        newSurveyData.splice(n, 1);
-                        this.setState({
-                          surveyData: newSurveyData
-                        });
-                      }
+                if (
+                  newSurveyData[n].HITTypeId == hitTypeId &&
+                  newSurveyData[i].HITId != this.state.selectedSurveyID
+                ) {
+                  mturk.deleteHIT({ HITId: newSurveyData[n].HITId }, err => {
+                    if (err) {
+                      this.setState({
+                        errorModalBody: (
+                          <div>
+                            <strong className="text-center">
+                              There was problem deleting the 2nd hit of a
+                              reversed survey (Recommend refreshing the survey
+                              list):
+                            </strong>
+                            <p>{err.message}</p>
+                          </div>
+                        ),
+                        errorModalVisible: true
+                      });
                     }
-                  );
+                  });
                   break;
                 }
               }
@@ -545,13 +557,11 @@ class Manage extends Component {
             }
           }
 
-          //Remove the selected survey from the list
-          for (let i = 0; i < newSurveyData.length; i++) {
-            if (newSurveyData[i].HITId == this.state.selectedSurveyID) {
-              this.splice(i, 1);
-              break;
-            }
-          }
+          //Remove the surveys from the cache
+          newSurveyData = newSurveyData.filter(hit => {
+            return hit.HITTypeId != hitTypeId;
+          });
+
           this.setState({
             selectedSurveyID: "",
             surveyData: newSurveyData
@@ -571,6 +581,25 @@ class Manage extends Component {
         errorModalVisible: true
       });
     }
+    this.setState({
+      secureConfirmModalBody: "",
+      secureConfirmModalVisible: false
+    });
+  };
+
+  handleDeleteSurvey = () => {
+    this.setState({
+      secureConfirmModalBody:
+        "Are you sure you want to delete the selected survey?",
+      secureConfirmModalVisible: true
+    });
+  };
+
+  handleDeleteCancel = () => {
+    this.setState({
+      secureConfirmModalBody: "",
+      secureConfirmModalVisible: false
+    });
   };
 
   /**
@@ -593,6 +622,13 @@ class Manage extends Component {
           >
             {this.state.errorModalBody}
           </ErrorModal>
+          <SecureConfirmationModal
+            isVisible={this.state.secureConfirmModalVisible}
+            onModalCancel={this.handleDeleteCancel}
+            onModalConfirm={this.handleConfirmDelete}
+          >
+            {this.state.secureConfirmModalBody}
+          </SecureConfirmationModal>
           <h3 className="card-title text-center">Manage Surveys</h3>
           <h5 className="border-bottom my-3">All Surveys</h5>
           <button className="btn btn-primary" onClick={this.handleRefresh}>

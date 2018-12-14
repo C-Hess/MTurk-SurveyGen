@@ -11,31 +11,33 @@ class AssignmentReward extends Component {
      */
     recommendReward: false,
     /**
-     * Cached field containing the number of questions that have been added to the Create component. It
-     * is used to see if the number of questions has been changed, and if the assignment reward should
+     * Cached field containing the estimated survey duration. It
+     * is used to see if survey duration has changed changed, and if the assignment reward should
      * be updated accordingly.
      */
-    cachedNumOfQuestions: 0
+    cachedSurveyDuration: 0
   };
 
   /**
    * Function from React.Component that derives the state of the AssignmentReward component from the props
-   * it has received from the parent component (in this case, the Create component).
+   * it has received from the parent component (in this case, the Create component). It
+   * is used to determine if the survey duration has changed and if the assignment reward should
+   * be updated accordingly.
    *
    * @param {*} nextProps the new properties that are about to be passed to this component.
    * @param {*} prevState the previous state of this component.
    */
   static getDerivedStateFromProps(nextProps, prevState) {
     if (
-      prevState.cachedNumOfQuestions != nextProps.numOfQuestions &&
+      prevState.cachedSurveyDuration != nextProps.surveyDuration &&
       prevState.recommendReward
     ) {
       const calculatedReward = AssignmentReward.calculateAssignmentReward(
-        nextProps.numOfQuestions
+        nextProps.surveyDuration
       );
       nextProps.onRewardChange(calculatedReward);
       return {
-        cachedNumOfQuestions: nextProps.numOfQuestions
+        cachedSurveyDuration: nextProps.surveyDuration
       };
     }
     return null;
@@ -43,15 +45,15 @@ class AssignmentReward extends Component {
 
   /**
    * Static method that calculates the assignment reward automatically using an equation.
-   * Currently, it assumes every question would take 1 and a half minutes long at a rate of
-   * $6.50 an hour.
+   * Currently, it uses the user estimated survey duration time in seconds and calculates
+   * the reward at a rate of $6.50 an hour.
    *
-   * @param {number} numOfQuestions the number of questions that are in the HIT.
+   * @param {number} surveyDuration the estimated duration of the survey in seconds.
    * @returns {string} Decimal string containing the automatically calculated assignment reward
    * rounded to the nearest hundredths.
    */
-  static calculateAssignmentReward = numOfQuestions => {
-    return (Math.round(numOfQuestions * 16.25) / 100).toFixed(2);
+  static calculateAssignmentReward = surveyDuration => {
+    return (Math.round(surveyDuration * (6.5 / 3600) * 100) / 100).toFixed(2);
   };
 
   /**
@@ -61,7 +63,7 @@ class AssignmentReward extends Component {
     this.setState({ recommendReward: e.target.checked });
     if (e.target.checked) {
       const newReward = AssignmentReward.calculateAssignmentReward(
-        this.props.numOfQuestions
+        this.props.surveyDuration
       );
       this.setState({
         inputFieldVal: newReward,
@@ -114,7 +116,7 @@ class AssignmentReward extends Component {
   render() {
     return (
       <div className="form-group">
-        <label>Assignment reward</label>
+        <label>Assignment reward per worker</label>
         <div className="input-group">
           <div className="input-group-prepend">
             <span className="input-group-text">$</span>

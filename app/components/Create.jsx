@@ -588,7 +588,7 @@ class Create extends Component {
         <div className="alert alert-warning">
           <strong>Warning:</strong> Amazon Mechanical Turk will take an
           additional 40% commision fee instead of the usual 20% on surveys with
-          more than 10 assignments.
+          10 or more assignments.
         </div>
       );
     }

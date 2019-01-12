@@ -48,10 +48,110 @@ class Manage extends Component {
     secureConfirmModalBody: ""
   };
 
+  parsePaginatedAssignmentResults = (err, data, hitID) => {
+    if (err) {
+      this.setState({
+        errorModalVisible: true,
+        errorModalBody: (
+          <div>
+            <strong className="text-center">
+              There was problem gathering survey information:
+            </strong>
+            <p>{err.message}</p>
+          </div>
+        )
+      });
+    } else {
+      let newCachedSurveyResults = JSON.parse(
+        JSON.stringify(this.state.cachedSurveyResults)
+      );
+
+      if (newCachedSurveyResults[hitID] == null) {
+        newCachedSurveyResults[hitID] = data.Assignments;
+      } else {
+        newCachedSurveyResults[hitID].push(...data.Assignments);
+      }
+      this.setState({
+        cachedSurveyResults: newCachedSurveyResults
+      });
+
+      if (data.NextToken != null && data.NextToken != "") {
+        const mturk = this.props.getAPIInstance();
+        mturk.listAssignmentsForHIT(
+          { HITId: hitID, NextToken: data.NextToken },
+          (err, data) => {
+            // Wrap our own arguments around the callback function so
+            // we know which hit the data is associated with
+            this.parsePaginatedAssignmentResults(err, data, hitID);
+          }
+        );
+      } else {
+        let selectedHit;
+        for (let i = 0; i < this.state.surveyData.length; i++) {
+          if (this.state.surveyData[i].HITId == this.state.selectedSurveyID) {
+            selectedHit = this.state.surveyData[i];
+          }
+        }
+
+        for (let i = 0; i < this.state.surveyData.length; i++) {
+          let otherHit = this.state.surveyData[i];
+          if (
+            otherHit.HITId != selectedHit.HITId &&
+            otherHit.HITTypeId == selectedHit.HITTypeId
+          ) {
+            if (selectedHit.CreationTime < otherHit.CreationTime) {
+              mturk.listAssignmentsForHIT(
+                { HITId: otherHit.HITId },
+                (err, data) => {
+                  // Wrap our own arguments around the callback function so
+                  // we know which hit the data is associated with
+                  this.parsePaginatedReverseAssignmentResults(
+                    err,
+                    data,
+                    otherHit.HITId
+                  );
+                }
+              );
+            } else {
+              console.error("Impossible condition reached.");
+            }
+          }
+        }
+      }
+    }
+  };
+
+  parsePaginatedReverseAssignmentResults = (err, data, hitID) => {
+    if (err) {
+      this.setState({
+        errorModalVisible: true,
+        errorModalBody: (
+          <div>
+            <strong className="text-center">
+              There was problem gathering survey information:
+            </strong>
+            <p>{err.message}</p>
+          </div>
+        )
+      });
+    } else {
+      let newCachedSurveyResults = JSON.parse(
+        JSON.stringify(this.state.cachedSurveyResults)
+      );
+      if (newCachedSurveyResults[hitID] == null) {
+        newCachedSurveyResults[hitID] = data.Assignments;
+      } else {
+        newCachedSurveyResults[hitID].push(...data.Assignments);
+      }
+
+      this.setState({
+        cachedSurveyResults: newCachedSurveyResults
+      });
+    }
+  };
+
   /**
-   * Event handler for when a survey is selected from the surveys table. It will load the results of the HIT
-   * by either calling the mturk API (mturk.listAssignmentsForHIT()) or by using a cached result of it if
-   * available.
+   * Event handler for when a survey is selected from the surveys table.
    *
    * @param {string} hitID the HIT ID that the user has selected.
    */
@@ -59,73 +159,9 @@ class Manage extends Component {
     if (!(hitID in this.state.cachedSurveyResults)) {
       const mturk = this.props.getAPIInstance();
       mturk.listAssignmentsForHIT({ HITId: hitID }, (err, data) => {
-        if (err) {
-          this.setState({
-            errorModalVisible: true,
-            errorModalBody: (
-              <div>
-                <strong className="text-center">
-                  There was problem gathering survey information:
-                </strong>
-                <p>{err.message}</p>
-              </div>
-            )
-          });
-        } else {
-          let newCachedSurveyResults = JSON.parse(
-            JSON.stringify(this.state.cachedSurveyResults)
-          );
-          newCachedSurveyResults[hitID] = data.Assignments;
-          this.setState({
-            cachedSurveyResults: newCachedSurveyResults
-          });
-
-          let selectedHit;
-          for (let i = 0; i < this.state.surveyData.length; i++) {
-            if (this.state.surveyData[i].HITId == this.state.selectedSurveyID) {
-              selectedHit = this.state.surveyData[i];
-            }
-          }
-
-          for (let i = 0; i < this.state.surveyData.length; i++) {
-            let otherHit = this.state.surveyData[i];
-            if (
-              otherHit.HITId != selectedHit.HITId &&
-              otherHit.HITTypeId == selectedHit.HITTypeId
-            ) {
-              if (selectedHit.CreationTime < otherHit.CreationTime) {
-                mturk.listAssignmentsForHIT(
-                  { HITId: otherHit.HITId },
-                  (err, data) => {
-                    if (err) {
-                      this.setState({
-                        errorModalVisible: true,
-                        errorModalBody: (
-                          <div>
-                            <strong className="text-center">
-                              There was problem gathering survey information:
-                            </strong>
-                            <p>{err.message}</p>
-                          </div>
-                        )
-                      });
-                    } else {
-                      let newCachedSurveyResults = JSON.parse(
-                        JSON.stringify(this.state.cachedSurveyResults)
-                      );
-                      newCachedSurveyResults[otherHit.HITId] = data.Assignments;
-                      this.setState({
-                        cachedSurveyResults: newCachedSurveyResults
-                      });
-                    }
-                  }
-                );
-              } else {
-                console.error("Impossible condition reached.");
-              }
-            }
-          }
-        }
+        // Wrap our own arguments around the callback function so
+        // we know which hit the data is associated with
+        this.parsePaginatedAssignmentResults(err, data, hitID);
       });
     }
     this.setState({ selectedSurveyID: hitID });
@@ -365,7 +401,6 @@ class Manage extends Component {
         let completed = hit.NumberOfAssignmentsCompleted;
         let remaining = hit.NumberOfAssignmentsAvailable;
         let total = hit.MaxAssignments;
-
         let addRow = true;
 
         for (let i = 0; i < this.state.surveyData.length; i++) {
@@ -385,6 +420,7 @@ class Manage extends Component {
           }
         }
         if (addRow) {
+          console.log(hit);
           return (
             <tr
               key={hit.HITId}
@@ -448,42 +484,61 @@ class Manage extends Component {
     }
   };
 
+  parsePaginatedHITListing = (err, data) => {
+    if (err) {
+      this.setState({
+        errorModalBody: (
+          <div>
+            <strong className="text-center">
+              There was problem refreshing:
+            </strong>
+            <p>{err.message}</p>
+          </div>
+        ),
+        errorModalVisible: true
+      });
+    } else {
+      let selectedSurveyIDExists = false;
+      for (let i = 0; i < data.HITs.length; i++) {
+        if (data.HITs[i].HITId == this.state.selectedSurveyID) {
+          selectedSurveyIDExists = true;
+          break;
+        }
+      }
+      this.setState({surveyData: [...this.state.surveyData, ...data.HITs]});
+      if(data.NextToken != null) {
+          try {
+            const mturk = this.props.getAPIInstance();
+            mturk.listHITs({NextToken: data.NextToken}, this.parsePaginatedHITListing);
+          } catch(err) {
+            this.setState({
+              errorModalBody: (
+                <div>
+                  <strong className="text-center">
+                    There was problem refreshing:
+                  </strong>
+                  <p>{err.message}</p>
+                </div>
+              ),
+              errorModalVisible: true
+            });
+          }
+      }
+
+      if (selectedSurveyIDExists) {
+        this.handleSurveyRowSelect(this.state.selectedSurveyID);
+      }
+    }
+  }
   /**
    * Event handler for when the user clicks the "Refresh" button. It will clear the survey data cache and
    * will make another call to mturk.listHITs function to refresh the manage page.
    */
   handleRefresh = () => {
+    this.setState({surveyData: [], cachedSurveyResults: {}});
     try {
       const mturk = this.props.getAPIInstance();
-      mturk.listHITs({}, (err, data) => {
-        if (err) {
-          this.setState({
-            errorModalBody: (
-              <div>
-                <strong className="text-center">
-                  There was problem refreshing:
-                </strong>
-                <p>{err.message}</p>
-              </div>
-            ),
-            errorModalVisible: true
-          });
-        } else {
-          let selectedSurveyIDExists = false;
-          for (let i = 0; i < data.HITs.length; i++) {
-            if (data.HITs[i].HITId == this.state.selectedSurveyID) {
-              selectedSurveyIDExists = true;
-            }
-          }
-          this.setState({
-            surveyData: data.HITs,
-            cachedSurveyResults: {}
-          });
-          if (selectedSurveyIDExists) {
-            this.handleSurveyRowSelect(this.state.selectedSurveyID);
-          }
-        }
-      });
+      mturk.listHITs({}, this.parsePaginatedHITListing);
     } catch (err) {
       this.setState({
         errorModalBody: (

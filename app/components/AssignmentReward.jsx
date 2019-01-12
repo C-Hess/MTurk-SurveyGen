@@ -86,7 +86,7 @@ class AssignmentReward extends Component {
    */
   handleRewardBlur = e => {
     let rewardString = e.target.value;
-    rewardString = rewardString.replace(/[^.\d]/g, "");
+    rewardString = rewardString.replace(/[^.-\d]/g, "");
     if (rewardString.startsWith(".")) {
       rewardString = "0" + rewardString;
     }
@@ -94,14 +94,11 @@ class AssignmentReward extends Component {
       rewardString = rewardString.substring(0, rewardString.length - 2);
     }
 
-    if (rewardString == "") {
-      rewardString = 0.0;
+    if (rewardString == "" || isNaN(parseFloat(rewardString)) || parseFloat(rewardString) < 0.01) {
+      rewardString = 0.01;
     }
 
     let rewardFloat = parseFloat(rewardString);
-    if (isNaN(rewardFloat)) {
-      rewardFloat = 0;
-    }
 
     rewardFloat = Math.min(100, rewardFloat);
 

@@ -16,7 +16,7 @@ let window;
  */
 class Create extends Component {
   /** Default value of assinments per HIT to reset to if the user input is invalid. */
-  defaultAssignmentsPerHIT = 10;
+  defaultAssignmentsPerHIT = 9;
 
   surveyLifetimeDuration = 28800;
 
@@ -43,7 +43,7 @@ class Create extends Component {
      */
     randomizeControlOrder: true,
     /** User inputted decimal string giving the monetary reward for completing an assignment. */
-    assignmentReward: "0.00",
+    assignmentReward: "0.01",
     /** User inputted number of assignments to be available for a hit. */
     assignmentsPerHIT: this.defaultAssignmentsPerHIT,
     /** Bool decides whether the error modal component should be visible or not. */
@@ -61,6 +61,19 @@ class Create extends Component {
     surveyDuration: 300
   };
 
+  getCommissionPercentage = () => {
+    return this.state.assignmentsPerHIT > 9 ? 0.4 : 0.2;
+  };
+  getCommission = () => {
+    let commissionPercentage = this.getCommissionPercentage();
+    let commissionCost = this.state.assignmentReward * commissionPercentage;
+    if (commissionCost < 0.01) {
+      commissionCost = 0.01;
+    }
+    console.log(commissionCost);
+    return commissionCost;
+  };
+
   /**
    * Returns the total cost of the survey (string).
    * @returns {string} the total cost of the survey rounded to the hundredths
@@ -68,7 +81,7 @@ class Create extends Component {
   getTotalCost = () => {
     return (
       this.state.assignmentsPerHIT *
-      this.state.assignmentReward *
+      (parseFloat(this.state.assignmentReward) + this.getCommission()) *
       (this.state.reverseAssignment ? 2 : 1)
     ).toFixed(2);
   };
@@ -547,6 +560,40 @@ class Create extends Component {
     });
   };
 
+  displayAssignmentRewardWarning = () => {
+    if (
+      !isNaN(parseFloat(this.state.assignmentReward)) &&
+      parseFloat(this.state.assignmentReward) >= 0.01 &&
+      parseFloat(this.state.assignmentReward) * this.getCommissionPercentage() <
+        0.01
+    ) {
+      return (
+        <div className="alert alert-info">
+          <strong>Important:</strong> Amazon takes either 20% commission (40%
+          commission if the survey has 10 or more assignments) of the assignment
+          reward or a minimum commission of $0.01, whichever is higher. The
+          commission for this assignment reward value is less than $0.01, so
+          Amazon will take the minimum commission fee of $0.01. You can
+          potentially cut costs if you make the survey larger and increase the
+          assignment reward rather than have multiple surveys with small
+          rewards.
+        </div>
+      );
+    }
+  };
+
+  displayAssignmentsPerHITWarning = () => {
+    if (this.state.assignmentsPerHIT > 9) {
+      return (
+        <div className="alert alert-warning">
+          <strong>Warning:</strong> Amazon Mechanical Turk will take an
+          additional 40% commision fee instead of the usual 20% on surveys with
+          more than 10 assignments.
+        </div>
+      );
+    }
+  };
+
   /**
    * Render function from React.Component. Displays the "Create" page.
    */
@@ -705,6 +752,7 @@ class Create extends Component {
               assignmentReward={this.state.assignmentReward}
               onRewardChange={this.handleRewardChange}
             />
+            {this.displayAssignmentRewardWarning()}
             <div className="form-group">
               <label>Assignments per HIT</label>
               <input
@@ -715,6 +763,7 @@ class Create extends Component {
                 onBlur={this.handleAssignmentsPerHITBlur}
               />
             </div>
+            {this.displayAssignmentsPerHITWarning()}
             <div className="d-flex">
               <button
                 className="btn btn-info btn-block w-75 mr-2"

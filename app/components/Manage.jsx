@@ -100,6 +100,7 @@ class Manage extends Component {
             otherHit.HITTypeId == selectedHit.HITTypeId
           ) {
             if (selectedHit.CreationTime < otherHit.CreationTime) {
+              const mturk = this.props.getAPIInstance();
               mturk.listAssignmentsForHIT(
                 { HITId: otherHit.HITId },
                 (err, data) => {
@@ -420,7 +421,6 @@ class Manage extends Component {
           }
         }
         if (addRow) {
-          console.log(hit);
           return (
             <tr
               key={hit.HITId}
@@ -685,7 +685,7 @@ class Manage extends Component {
             {this.state.secureConfirmModalBody}
           </SecureConfirmationModal>
           <h3 className="card-title text-center">Manage Surveys</h3>
-          <h5 className="border-bottom my-3">All Surveys</h5>
+          <h4 className="border-bottom my-3">All Surveys</h4>
           <button className="btn btn-primary" onClick={this.handleRefresh}>
             Refresh
             <i className="fas fa-sync-alt ml-3" />
@@ -719,7 +719,7 @@ class Manage extends Component {
           >
             Delete
           </button>
-          <h5 className="border-bottom my-3">Selected Survey</h5>
+          <h4 className="border-bottom my-3">Selected Survey</h4>
           {this.getSelectedSurveyData()}
         </div>
       </div>

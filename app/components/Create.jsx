@@ -46,6 +46,8 @@ class Create extends Component {
     assignmentReward: "0.01",
     /** User inputted number of assignments to be available for a hit. */
     assignmentsPerHIT: this.defaultAssignmentsPerHIT,
+    hitApprovalRatingQualificationValue: "0%",
+    hitCompletionAmountQualificationValue: "0",
     /** Bool decides whether the error modal component should be visible or not. */
     errorModalVisible: false,
     /** String/react content that is to be displayed in the error modal component. */
@@ -64,13 +66,13 @@ class Create extends Component {
   getCommissionPercentage = () => {
     return this.state.assignmentsPerHIT > 9 ? 0.4 : 0.2;
   };
+
   getCommission = () => {
     let commissionPercentage = this.getCommissionPercentage();
     let commissionCost = this.state.assignmentReward * commissionPercentage;
     if (commissionCost < 0.01) {
       commissionCost = 0.01;
     }
-    console.log(commissionCost);
     return commissionCost;
   };
 
@@ -494,6 +496,33 @@ class Create extends Component {
       Question: generatedSurvey
     };
 
+    const qualificationRequirementsArray = [];
+    const approvalRateQualificationInt = parseInt(this.state.hitApprovalRatingQualificationValue.replace('[^\d]'));
+    if(approvalRateQualificationInt > 0) {
+      qualificationRequirementsArray.push({
+        QualificationTypeId: '000000000000000000L0',
+        Comparator: 'GreaterThan',
+        ActionsGuarded: 'DiscoverPreviewAndAccept',
+        IntegerValues: [approvalRateQualificationInt],
+        RequiredToPreview: false
+      });
+    }
+
+    const completedAssignmentsInt = parseInt(this.state.hitCompletionAmountQualificationValue);
+    if(completedAssignmentsInt > 0) {
+      qualificationRequirementsArray.push({
+        QualificationTypeId: '00000000000000000040',
+        Comparator: 'GreaterThan',
+        ActionsGuarded: 'DiscoverPreviewAndAccept',
+        IntegerValues: [completedAssignmentsInt],
+        RequiredToPreview: false
+      });
+    }
+
+    if(qualificationRequirementsArray.length > 0) {
+      surveyHIT.QualificationRequirements = qualificationRequirementsArray;
+    }
+
     mturk.createHIT(surveyHIT, (err, data) => {
       if (err) {
         this.setState({
@@ -527,6 +556,32 @@ class Create extends Component {
             Reward: this.state.assignmentReward,
             Question: generatedSurvey
           };
+          const qualificationRequirementsArray = [];
+          const approvalRateQualificationInt = parseInt(this.state.hitApprovalRatingQualificationValue.replace('[^\d]'));
+          if(approvalRateQualificationInt > 0) {
+            qualificationRequirementsArray.push({
+              QualificationTypeId: '000000000000000000L0',
+              Comparator: 'GreaterThan',
+              ActionsGuarded: 'DiscoverPreviewAndAccept',
+              IntegerValues: [approvalRateQualificationInt],
+              RequiredToPreview: false
+            });
+          }
+      
+          const completedAssignmentsInt = parseInt(this.state.hitCompletionAmountQualificationValue);
+          if(completedAssignmentsInt > 0) {
+            qualificationRequirementsArray.push({
+              QualificationTypeId: '00000000000000000040',
+              Comparator: 'GreaterThan',
+              ActionsGuarded: 'DiscoverPreviewAndAccept',
+              IntegerValues: [completedAssignmentsInt],
+              RequiredToPreview: false
+            });
+          }
+      
+          if(qualificationRequirementsArray.length > 0) {
+            surveyHIT.QualificationRequirements = qualificationRequirementsArray;
+          }
 
           setTimeout(() => {
             mturk.createHIT(surveyHIT, (err, data) => {
@@ -569,14 +624,11 @@ class Create extends Component {
     ) {
       return (
         <div className="alert alert-info">
-          <strong>Important:</strong> Amazon takes either 20% commission (40%
-          commission if the survey has 10 or more assignments) of the assignment
-          reward or a minimum commission of $0.01, whichever is higher. The
-          commission for this assignment reward value is less than $0.01, so
-          Amazon will take the minimum commission fee of $0.01. You can
-          potentially cut costs if you make the survey larger and increase the
-          assignment reward rather than have multiple surveys with small
-          rewards.
+          <strong>Important:</strong> The commission amount for this assignment
+          reward would be less than $0.01. However, Amazon takes a minimum
+          commission fee of $0.01. You could save money if you combine multiple
+          surveys with low assignment rewards into one large survey with a
+          higher assignment reward.
         </div>
       );
     }
@@ -592,6 +644,53 @@ class Create extends Component {
         </div>
       );
     }
+  };
+
+  handleApprovalRatingInputFocus = e => {
+    this.setState({
+      hitApprovalRatingQualificationValue: this.state.hitApprovalRatingQualificationValue.replace(
+        "%",
+        ""
+      )
+    });
+  };
+
+  handleApprovalRatingInputChange = e => {
+    this.setState({ hitApprovalRatingQualificationValue: e.target.value });
+  };
+
+  handleApprovalRatingInputBlur = e => {
+    //Convert string into int for bounds/NaN checking
+    let intVal = parseInt(
+      this.state.hitApprovalRatingQualificationValue.replace(/[^-.\d]/g, "")
+    );
+
+    if (isNaN(intVal)) {
+      intVal = 0;
+    }
+
+    intVal = Math.min(100, Math.max(0, intVal));
+    //Convert float back into string for better readibility
+    let strVal = intVal + "%";
+    this.setState({ hitApprovalRatingQualificationValue: strVal });
+  };
+
+  handleHITCompletionAmountChange = e => {
+    this.setState({ hitCompletionAmountQualificationValue: e.target.value });
+  };
+
+  handleHITCompletionAmountBlur = e => {
+    let intVal = parseInt(
+      this.state.hitCompletionAmountQualificationValue.replace(/[^-.\d]/g, "")
+    );
+
+    if (isNaN(intVal)) {
+      intVal = 0;
+    }
+
+    intVal = Math.min(200, Math.max(0, intVal));
+
+    this.setState({ hitCompletionAmountQualificationValue: intVal.toString() });
   };
 
   /**
@@ -624,7 +723,7 @@ class Create extends Component {
           </SuccessModal>
           <h3 className="card-title text-center">Create a New HIT</h3>
           <div className="mt-2">
-            <h5 className="border-bottom my-3">Description</h5>
+            <h4 className="border-bottom my-3">Description</h4>
             <div className="form-group">
               <label>Survey title</label>
               <input
@@ -658,7 +757,7 @@ class Create extends Component {
                 Example: Which &#60;image/video> do you prefer?
               </small>
             </div>
-            <h5 className="border-bottom my-3">Questions</h5>
+            <h4 className="border-bottom my-3">Questions</h4>
             <AddSingleURL onAddURLQuestion={this.handleAddURLQuestion} />
             <div className="text-center my-1">
               <strong>OR</strong>
@@ -689,7 +788,7 @@ class Create extends Component {
             >
               Delete
             </button>
-            <h5 className="border-bottom my-3">Survey Configuration</h5>
+            <h4 className="border-bottom my-3">General Survey Configuration</h4>
             <div className="form-group form-check">
               <input
                 type="checkbox"
@@ -764,6 +863,48 @@ class Create extends Component {
               />
             </div>
             {this.displayAssignmentsPerHITWarning()}
+            <h4 className="border-bottom my-3">Survey Qualifications</h4>
+            <div className="form-group">
+              <label>HIT Approval Rating</label>
+              <div className="input-group">
+                <div className="input-group-prepend">
+                  <span className="input-group-text">Greater than</span>
+                </div>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={this.state.hitApprovalRatingQualificationValue}
+                  onFocus={this.handleApprovalRatingInputFocus}
+                  onChange={this.handleApprovalRatingInputChange}
+                  onBlur={this.handleApprovalRatingInputBlur}
+                />
+              </div>
+              <small className="form-text text-muted">
+                This qualification restricts the survey to workers who meet a
+                certain HIT approval rating threshold. Note that the approval
+                rating of workers who submitted less than 100 assignments is
+                defaulted to 100%.
+              </small>
+            </div>
+            <div className="form-group">
+              <label>Number of completed HITs</label>
+              <div className="input-group">
+                <div className="input-group-prepend">
+                  <span className="input-group-text">Greater than</span>
+                </div>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={this.state.hitCompletionAmountQualificationValue}
+                  onChange={this.handleHITCompletionAmountChange}
+                  onBlur={this.handleHITCompletionAmountBlur}
+                />
+              </div>
+              <small className="form-text text-muted">
+                This qualification restricts the survey to workers who have
+                completed a certain amount of HITs.
+              </small>
+            </div>
             <div className="d-flex">
               <button
                 className="btn btn-info btn-block w-75 mr-2"

@@ -46,14 +46,14 @@ class AssignmentReward extends Component {
   /**
    * Static method that calculates the assignment reward automatically using an equation.
    * Currently, it uses the user estimated survey duration time in seconds and calculates
-   * the reward at a rate of $6.50 an hour.
+   * the reward at a rate of $4.50 an hour.
    *
    * @param {number} surveyDuration the estimated duration of the survey in seconds.
    * @returns {string} Decimal string containing the automatically calculated assignment reward
    * rounded to the nearest hundredths.
    */
   static calculateAssignmentReward = surveyDuration => {
-    return (Math.round(surveyDuration * (6.5 / 3600) * 100) / 100).toFixed(2);
+    return (Math.round(surveyDuration * (4.5 / 3600) * 100) / 100).toFixed(2);
   };
 
   /**
